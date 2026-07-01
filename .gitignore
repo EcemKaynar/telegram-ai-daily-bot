@@ -1,0 +1,11 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+bot_messages.db
+model_state.json
+
+*.log
+.DS_Store

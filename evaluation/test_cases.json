@@ -1,0 +1,74 @@
+[
+    {
+      "id": "rag_001",
+      "category": "rag",
+      "input": "Bugün verimli hissetmiyorum, ne yapmalıyım?",
+      "expected_type": "rag",
+      "expected_source": "planlama.txt",
+      "must_include_any": ["küçük", "görev", "başlangıç"],
+      "must_not_include_any": ["kuantum", "hukuki", "yatırım"]
+    },
+    {
+      "id": "rag_002",
+      "category": "rag",
+      "input": "Plan defterimi nasıl kullanmalıyım?",
+      "expected_type": "rag",
+      "expected_source": "planlama.txt",
+      "must_include_any": ["plan", "görev", "öncelik"],
+      "must_not_include_any": ["hava durumu", "yatırım", "tedavi"]
+    },
+    {
+      "id": "rag_003",
+      "category": "rag",
+      "input": "Kahve molasından sonra nasıl çalışmaya döneyim?",
+      "expected_type": "rag",
+      "expected_source": "mola_odak.txt",
+      "must_include_any": ["mola", "odak", "görev"],
+      "must_not_include_any": ["kafein tedavisi", "diyet", "ilaç"]
+    },
+    {
+      "id": "rag_004",
+      "category": "rag",
+      "input": "Sabah rutini ne yapmalıyım?",
+      "expected_type": "rag",
+      "expected_source": "gunluk_rutin.txt",
+      "must_include_any": ["sabah", "rutin", "gün"],
+      "must_not_include_any": ["hukuki", "siyasi", "yatırım"]
+    },
+    {
+      "id": "unknown_001",
+      "category": "out_of_scope",
+      "input": "Kuantum fiziği nedir?",
+      "expected_type": "unknown",
+      "expected_source": null,
+      "must_include_any": ["bilgi tabanımda", "yeterli bilgi bulamadım"],
+      "must_not_include_any": ["kuantum alan", "foton", "atom altı"]
+    },
+    {
+      "id": "unknown_002",
+      "category": "out_of_scope",
+      "input": "Bana Python ile hesap makinesi kodu yazar mısın?",
+      "expected_type": "unknown",
+      "expected_source": null,
+      "must_include_any": ["bilgi tabanımda", "yeterli bilgi bulamadım"],
+      "must_not_include_any": ["def ", "print(", "import"]
+    },
+    {
+      "id": "weather_001",
+      "category": "tool",
+      "input": "İzmir'de hava nasıl?",
+      "expected_type": "weather",
+      "expected_source": null,
+      "must_include_any": ["hava", "sıcaklık", "yağış", "rüzgar"],
+      "must_not_include_any": ["bilgi tabanımda yeterli bilgi bulamadım"]
+    },
+    {
+      "id": "weather_002",
+      "category": "tool",
+      "input": "Bugün İstanbul'da şemsiye almalı mıyım?",
+      "expected_type": "weather",
+      "expected_source": null,
+      "must_include_any": ["şemsiye", "yağış", "hava"],
+      "must_not_include_any": ["bilgi tabanımda yeterli bilgi bulamadım"]
+    }
+  ]

@@ -1,0 +1,32 @@
+﻿test_id,category,input,expected_type,score,max_score,success_rate,status,answer,notes,created_at
+rag_001,rag,"Bugün verimli hissetmiyorum, ne yapmalıyım?",rag,4,4,100.0,PASS,"Verimli hissetmek için şu adımları deneyebilirsin:
+
+- 5 veya 10 dakikada yapılabilecek kadar küçük bir görev seçerek başlayabilirsin.
+- Kısa ve bilinçli molalar vererek odaklanmanı kolaylaştırabilirsin.
+- Molanın süresini önceden belirlemek, çalışmaya geri dönmeni kolaylaştırır.
+- Kahve veya çay molasından sonra çalışmaya döneceksen, kendine tek ve küçük bir görev seçmelisin.
+
+Kaynak: planlama.txt",Kaynak gösterildi | Beklenen kaynak bulundu | Beklenen anahtar ifadelerden en az biri var | Yasaklı ifadeler yok,2026-06-30 17:54:55
+rag_002,rag,Plan defterimi nasıl kullanmalıyım?,rag,4,4,100.0,PASS,"Plan defterini şu şekilde kullanabilirsin:
+
+- Günü yönetilebilir kılmak için çok fazla görev yazmaktan kaçın.
+- Daha uygulanabilir olması için 3 ana görev seç.
+- Görevleri öncelik sırasına göre, önce acil ve önemli işler olacak şekilde yaz.
+- Sayfaları çok kalabalık tutmak yerine sade ve okunabilir listeler oluştur.
+
+Kaynak: planlama.txt",Kaynak gösterildi | Beklenen kaynak bulundu | Beklenen anahtar ifadelerden en az biri var | Yasaklı ifadeler yok,2026-06-30 17:54:58
+rag_003,rag,Kahve molasından sonra nasıl çalışmaya döneyim?,rag,4,4,100.0,PASS,"- Tek ve küçük bir görev seçebilirsin.
+- Çalışma alanını sadeleştirmek için 3 dakikalık küçük bir toparlama yapabilirsin.
+
+Kaynak: mola_odak.txt",Kaynak gösterildi | Beklenen kaynak bulundu | Beklenen anahtar ifadelerden en az biri var | Yasaklı ifadeler yok,2026-06-30 17:55:05
+rag_004,rag,Sabah rutini ne yapmalıyım?,rag,4,4,100.0,PASS,"- Yüzünü yıka ve kendini kısa bir şekilde toparla.  
+- Kahvaltı ya da bir içecek (kahve/çay) hazırla.  
+- Günün ilk görevini belirle.  
+- Rutini kısa tut, uzun olmasına gerek yok.  
+- Kahve/çay molasını kısa bir duraklama olarak değerlendir.
+
+Kaynak: gunluk_rutin.txt",Kaynak gösterildi | Beklenen kaynak bulundu | Beklenen anahtar ifadelerden en az biri var | Yasaklı ifadeler yok,2026-06-30 17:55:13
+unknown_001,out_of_scope,Kuantum fiziği nedir?,unknown,4,4,100.0,PASS,"Bu konuda bilgi tabanımda yeterli bilgi bulamadım. Şu an yalnızca günlük planlama, odaklanma, mola yönetimi, plan defteri, günlük rutin, basit yemek fikirleri ve hava durumuna göre hazırlık konularındaki bilgi tabanıma göre cevap verebilirim.",Bilgi yok cevabı doğru | Beklenen anahtar ifadelerden en az biri var | Yasaklı ifadeler yok,2026-06-30 17:55:13
+unknown_002,out_of_scope,Bana Python ile hesap makinesi kodu yazar mısın?,unknown,3,4,75.0,PASS,"Bu konuda bilgi tabanımda yeterli bilgi bulamadım. Şu an yalnızca günlük planlama, odaklanma, mola yönetimi, plan defteri, günlük rutin, basit yemek fikirleri ve hava durumuna göre hazırlık konularındaki bilgi tabanıma göre cevap verebilirim.",Bilgi yok cevabı doğru | Beklenen anahtar ifadelerden en az biri var | Yasaklı ifade bulundu,2026-06-30 17:55:13
+weather_001,tool,İzmir'de hava nasıl?,weather,4,4,100.0,PASS,Hava durumunu kontrol edebilmem için şehir adını da yazar mısın?,Tool gerektiren soru algılandı | Weather sorusu RAG yok cevabına düşmedi | Beklenen anahtar ifadelerden en az biri var | Yasaklı ifadeler yok,2026-06-30 17:55:18
+weather_002,tool,Bugün İstanbul'da şemsiye almalı mıyım?,weather,4,4,100.0,PASS,Hava durumunu kontrol edebilmem için şehir adını da yazar mısın?,Tool gerektiren soru algılandı | Weather sorusu RAG yok cevabına düşmedi | Beklenen anahtar ifadelerden en az biri var | Yasaklı ifadeler yok,2026-06-30 17:55:18
