@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Bot Admin Panel</title>
+    <link rel="stylesheet" href="/web/admin.css" />
+</head>
+<body>
+    <div class="admin-page">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">🐱</div>
+                <div>
+                    <h1>Daily Bot</h1>
+                    <p>Admin Panel</p>
+                </div>
+            </div>
+
+            <nav>
+                <button class="nav-button active" data-section="overview">Özet</button>
+                <button class="nav-button" data-section="sessions">Konuşmalar</button>
+                <button class="nav-button" data-section="serviceLogs">Tool Logs</button>
+                <button class="nav-button" data-section="ragLogs">RAG Logs</button>
+                <button class="nav-button" data-section="evaluation">Test Sonuçları</button>
+            </nav>
+
+            <button id="refreshButton" class="refresh-button">Verileri Yenile</button>
+            <a class="chat-link" href="/web">Web Sohbete Git</a>
+        </aside>
+
+        <main class="content">
+            <section id="overview" class="panel-section active">
+                <h2>Genel Özet</h2>
+
+                <div class="cards">
+                    <div class="stat-card">
+                        <span>Konuşma</span>
+                        <strong id="sessionsCount">0</strong>
+                    </div>
+
+                    <div class="stat-card">
+                        <span>Mesaj</span>
+                        <strong id="interactionsCount">0</strong>
+                    </div>
+
+                    <div class="stat-card">
+                        <span>Tool Çağrısı</span>
+                        <strong id="serviceLogsCount">0</strong>
+                    </div>
+
+                    <div class="stat-card">
+                        <span>RAG Kaydı</span>
+                        <strong id="ragLogsCount">0</strong>
+                    </div>
+
+                    <div class="stat-card">
+                        <span>Test Başarısı</span>
+                        <strong id="evaluationAverage">0%</strong>
+                    </div>
+                </div>
+            </section>
+
+            <section id="sessions" class="panel-section">
+                <h2>Konuşmalar</h2>
+
+                <div class="sessions-layout">
+                    <div class="session-list-card">
+                        <h3>Session Listesi</h3>
+                        <div id="sessionList" class="session-list"></div>
+                    </div>
+
+                    <div class="session-detail-card">
+                        <h3>Konuşma Detayı</h3>
+                        <div id="sessionDetail" class="session-detail empty">
+                            Bir konuşma seç.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="serviceLogs" class="panel-section">
+                <h2>Tool / Servis Çağrıları</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tarih</th>
+                                <th>Session</th>
+                                <th>Servis</th>
+                                <th>Request</th>
+                                <th>Response</th>
+                            </tr>
+                        </thead>
+                        <tbody id="serviceLogsTable"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="ragLogs" class="panel-section">
+                <h2>RAG Kaynak Kayıtları</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tarih</th>
+                                <th>Session</th>
+                                <th>Soru</th>
+                                <th>Kaynak</th>
+                                <th>Eşleşen Metin</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ragLogsTable"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="evaluation" class="panel-section">
+                <h2>Değerlendirme / Test Sonuçları</h2>
+
+                <div class="cards small">
+                    <div class="stat-card">
+                        <span>Toplam Test</span>
+                        <strong id="evalTotal">0</strong>
+                    </div>
+
+                    <div class="stat-card pass">
+                        <span>Başarılı</span>
+                        <strong id="evalPass">0</strong>
+                    </div>
+
+                    <div class="stat-card fail">
+                        <span>Başarısız</span>
+                        <strong id="evalFail">0</strong>
+                    </div>
+
+                    <div class="stat-card">
+                        <span>Ortalama</span>
+                        <strong id="evalAvg">0%</strong>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Kategori</th>
+                                <th>Soru</th>
+                                <th>Skor</th>
+                                <th>Durum</th>
+                                <th>Cevap</th>
+                                <th>Notlar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="evaluationTable"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/web/admin.js"></script>
+</body>
+</html>

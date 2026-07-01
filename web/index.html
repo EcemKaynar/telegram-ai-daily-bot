@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Bot Web Chat</title>
+    <link rel="stylesheet" href="/web/styles.css" />
+</head>
+<body>
+    <div class="page">
+        <div class="chat-card">
+            <div class="chat-header">
+                <div class="avatar">🐱</div>
+                <div>
+                    <h1>Daily Bot</h1>
+                    <p>Günlük planlama, odak, rutin ve hava durumu asistanı</p>
+                </div>
+            </div>
+
+            <div id="chatMessages" class="chat-messages">
+                <div class="message bot">
+                    Merhaba! Bana yazılı mesaj gönderebilir veya mikrofona basarak sesli konuşabilirsin.
+                </div>
+            </div>
+
+            <div id="statusText" class="status-text"></div>
+
+            <div class="chat-input-area">
+                <input
+                    id="messageInput"
+                    type="text"
+                    placeholder="Mesajını yaz..."
+                    autocomplete="off"
+                />
+
+                <button id="sendButton" class="send-button">
+                    Gönder
+                </button>
+
+                <button id="recordButton" class="voice-button">
+                    🎙️
+                </button>
+            </div>
+
+            <div class="hint">
+                Mikrofon için tarayıcı izin isterse “izin ver” demelisin.
+            </div>
+        </div>
+    </div>
+
+    <script src="/web/script.js"></script>
+</body>
+</html>

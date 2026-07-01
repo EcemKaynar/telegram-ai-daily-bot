@@ -1,0 +1,296 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f7f4ea;
+    color: #262626;
+}
+
+.admin-page {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 270px;
+    background: #25210f;
+    color: #ffffff;
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.logo {
+    width: 48px;
+    height: 48px;
+    background: #ffd84d;
+    color: #25210f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 26px;
+}
+
+.sidebar h1 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.sidebar p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: #d7cf9d;
+}
+
+nav {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.nav-button,
+.refresh-button,
+.chat-link {
+    border: none;
+    border-radius: 14px;
+    padding: 12px 14px;
+    text-align: left;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.nav-button {
+    background: transparent;
+    color: #f5f0d0;
+}
+
+.nav-button:hover,
+.nav-button.active {
+    background: #ffd84d;
+    color: #25210f;
+}
+
+.refresh-button {
+    background: #ffffff;
+    color: #25210f;
+    font-weight: 700;
+    margin-top: auto;
+}
+
+.chat-link {
+    background: #3a341b;
+    color: #ffffff;
+    display: block;
+}
+
+.content {
+    flex: 1;
+    padding: 28px;
+    overflow-x: hidden;
+}
+
+.panel-section {
+    display: none;
+}
+
+.panel-section.active {
+    display: block;
+}
+
+h2 {
+    margin: 0 0 22px;
+    font-size: 28px;
+}
+
+h3 {
+    margin: 0 0 14px;
+}
+
+.cards {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(140px, 1fr));
+    gap: 16px;
+}
+
+.cards.small {
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    margin-bottom: 22px;
+}
+
+.stat-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(60, 50, 20, 0.08);
+    border: 1px solid #eee4b6;
+}
+
+.stat-card span {
+    display: block;
+    color: #77705a;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+.stat-card strong {
+    font-size: 28px;
+}
+
+.stat-card.pass strong {
+    color: #138a42;
+}
+
+.stat-card.fail strong {
+    color: #c0392b;
+}
+
+.sessions-layout {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 18px;
+}
+
+.session-list-card,
+.session-detail-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 18px;
+    box-shadow: 0 10px 30px rgba(60, 50, 20, 0.08);
+}
+
+.session-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 72vh;
+    overflow-y: auto;
+}
+
+.session-item {
+    border: 1px solid #eee4b6;
+    border-radius: 14px;
+    padding: 12px;
+    cursor: pointer;
+    background: #fffdf4;
+}
+
+.session-item:hover {
+    background: #fff2b8;
+}
+
+.session-item strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.session-item small {
+    display: block;
+    color: #766b46;
+    line-height: 1.4;
+}
+
+.session-detail.empty {
+    color: #87794f;
+}
+
+.message-row {
+    margin-bottom: 16px;
+    border-bottom: 1px solid #eee4b6;
+    padding-bottom: 12px;
+}
+
+.message-row .question {
+    background: #fff2b8;
+    padding: 10px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    white-space: pre-wrap;
+}
+
+.message-row .answer {
+    background: #f1f1f1;
+    padding: 10px;
+    border-radius: 12px;
+    white-space: pre-wrap;
+}
+
+.table-wrapper {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 12px;
+    overflow-x: auto;
+    box-shadow: 0 10px 30px rgba(60, 50, 20, 0.08);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+th,
+td {
+    border-bottom: 1px solid #eee4b6;
+    padding: 10px;
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    background: #fff7cf;
+    color: #443800;
+    font-weight: 700;
+}
+
+td {
+    max-width: 360px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.badge.pass {
+    background: #dbf7e5;
+    color: #138a42;
+}
+
+.badge.fail {
+    background: #ffe0dc;
+    color: #c0392b;
+}
+
+@media (max-width: 980px) {
+    .admin-page {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+    }
+
+    .cards,
+    .cards.small,
+    .sessions-layout {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,0 +1,189 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #fff7cf, #ffe4ef);
+    min-height: 100vh;
+}
+
+.page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.chat-card {
+    width: 100%;
+    max-width: 760px;
+    height: 86vh;
+    background: #ffffff;
+    border-radius: 28px;
+    box-shadow: 0 20px 60px rgba(60, 40, 20, 0.18);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chat-header {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 22px 24px;
+    background: #ffd84d;
+    border-bottom: 1px solid #f1c93b;
+}
+
+.avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: #fff7d8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+}
+
+.chat-header h1 {
+    margin: 0;
+    font-size: 24px;
+    color: #2f2500;
+}
+
+.chat-header p {
+    margin: 4px 0 0;
+    color: #6b5700;
+    font-size: 14px;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 22px;
+    overflow-y: auto;
+    background: #fffdf5;
+}
+
+.message {
+    max-width: 78%;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    border-radius: 18px;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    font-size: 15px;
+}
+
+.message.user {
+    margin-left: auto;
+    background: #ffe07a;
+    color: #2d2300;
+    border-bottom-right-radius: 6px;
+}
+
+.message.bot {
+    margin-right: auto;
+    background: #f1f1f1;
+    color: #222222;
+    border-bottom-left-radius: 6px;
+}
+
+.message.system {
+    margin: 10px auto;
+    background: #fff3bd;
+    color: #5a4700;
+    text-align: center;
+    font-size: 13px;
+}
+
+.status-text {
+    min-height: 22px;
+    padding: 0 22px;
+    color: #8a6d00;
+    font-size: 13px;
+}
+
+.chat-input-area {
+    display: flex;
+    gap: 10px;
+    padding: 16px;
+    border-top: 1px solid #f2e7b7;
+    background: #ffffff;
+}
+
+#messageInput {
+    flex: 1;
+    border: 1px solid #e6d98b;
+    border-radius: 18px;
+    padding: 13px 14px;
+    font-size: 15px;
+    outline: none;
+}
+
+#messageInput:focus {
+    border-color: #d5a900;
+}
+
+button {
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    border-radius: 16px;
+    padding: 12px 16px;
+}
+
+.send-button {
+    background: #ffd84d;
+    color: #2f2500;
+    font-weight: 600;
+}
+
+.send-button:hover {
+    background: #f6c900;
+}
+
+.voice-button {
+    background: #ffef9a;
+    color: #2f2500;
+    min-width: 52px;
+}
+
+.voice-button.recording {
+    background: #ff8d8d;
+    color: #ffffff;
+}
+
+.hint {
+    padding: 0 18px 16px;
+    color: #8b7a44;
+    font-size: 12px;
+    text-align: center;
+}
+
+@media (max-width: 700px) {
+    .page {
+        padding: 0;
+    }
+
+    .chat-card {
+        height: 100vh;
+        max-width: none;
+        border-radius: 0;
+    }
+
+    .chat-input-area {
+        gap: 6px;
+    }
+
+    button {
+        padding: 11px 12px;
+    }
+
+    .message {
+        max-width: 88%;
+    }
+}

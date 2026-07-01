@@ -797,47 +797,72 @@ def analyze_image_with_openrouter(image_path, caption="", history_context=""):
 
     return answer
 
-
 def ask_openrouter_with_rag(user_text, rag_context, history_context=""):
-    system_prompt = (
-        "Sen günlük yaşam asistanı olarak çalışan bir Telegram botusun. "
-        "Bu cevapta yalnızca sana verilen bilgi tabanı içeriğini kullanmalısın. "
-        "Kendi genel bilginden cevap uydurma. "
-        "Bilgi tabanı içeriği soruyu cevaplamak için yeterliyse kısa, net ve samimi cevap ver. "
-        "Bilgi tabanı içeriği yeterli değilse açıkça 'Bu konuda bilgi tabanımda yeterli bilgi bulamadım.' de. "
-        "Kullanıcı Türkçe yazarsa Türkçe cevap ver. "
-        "Markdown kullanma. Yıldız veya özel formatlama kullanma. "
-        "Madde işareti kullanacaksan sadece normal tire (-) kullan. "
-        "Cevabın en fazla 5 kısa madde olsun."
-    )
+    from rag_utils import detect_user_language
 
-    user_prompt = (
-        f"Kullanıcının sorusu:\n{user_text}\n\n"
-        f"Bilgi tabanından bulunan içerik:\n{rag_context}\n\n"
-        "Cevabı yalnızca bu bilgi tabanı içeriğine göre üret."
-    )
+    detected_language = detect_user_language(user_text)
 
-    if history_context:
-        user_prompt = (
-            f"Konuşma geçmişi:\n{history_context}\n\n"
-            f"{user_prompt}"
+    if detected_language == "en":
+        language_instruction = (
+            "The user's message is in English. Answer in English. "
+            "You may use the Turkish knowledge base content, but translate and explain it naturally in English."
+        )
+        fallback_message = (
+            "The AI model could not generate a proper answer right now. "
+            "Please try again in a few seconds."
+        )
+    else:
+        language_instruction = (
+            "Kullanıcının mesajı Türkçe. Cevabı Türkçe ver."
+        )
+        fallback_message = (
+            "Şu an yapay zeka modeli düzgün bir cevap üretemedi. "
+            "Lütfen birkaç saniye sonra tekrar dener misin?"
         )
 
-    messages = [
-        {
-            "role": "system",
-            "content": system_prompt
-        },
-        {
-            "role": "user",
-            "content": user_prompt
-        }
-    ]
+    system_prompt = f"""
+You are a helpful assistant for a daily-life Telegram and web bot.
 
-    return send_chat_request(
-        messages=messages,
-        pool_name="chat",
-        model_pool=CHAT_MODEL_POOL,
-        temperature=0.2,
-        max_tokens=600
-    )
+You must follow these rules:
+- Answer only by using the provided knowledge base content.
+- Do not invent information that is not supported by the knowledge base.
+- If the knowledge base is not enough, say that the knowledge base does not contain enough information.
+- Keep the answer clear, short and useful.
+- Do not mention internal technical details like RAG, embeddings or model errors.
+- {language_instruction}
+"""
+
+    user_prompt = f"""
+Conversation history:
+{history_context}
+
+Knowledge base content:
+{rag_context}
+
+User message:
+{user_text}
+
+Now answer the user according to the rules.
+"""
+
+    try:
+        answer = send_chat_request(
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt
+                }
+            ],
+            temperature=0.2,
+            max_tokens=600
+        )
+
+        return answer
+
+    except Exception as error:
+        print(f"RAG OpenRouter error: {error}")
+        return fallback_message
