@@ -1,26 +1,73 @@
+import os
 import sqlite3
+import uuid
 from datetime import datetime, timedelta
 
 
 DB_NAME = "bot_messages.db"
-SESSION_TIMEOUT_MINUTES = 60
+SESSION_TIMEOUT_MINUTES = int(os.getenv("SESSION_TIMEOUT_MINUTES", "5"))
+
+
+def get_now_text():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def parse_datetime(value):
+    if not value:
+        return None
+
+    try:
+        return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        try:
+            return datetime.fromisoformat(value)
+        except Exception:
+            return None
+
+
+def get_connection():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def create_session_id(user_id):
+    return f"{user_id}_{uuid.uuid4().hex[:12]}"
+
+
+def column_exists(cursor, table_name, column_name):
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    columns = cursor.fetchall()
+
+    for column in columns:
+        if column["name"] == column_name:
+            return True
+
+    return False
+
+
+def add_column_if_missing(cursor, table_name, column_name, column_definition):
+    if not column_exists(cursor, table_name, column_name):
+        cursor.execute(
+            f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}"
+        )
 
 
 def init_db():
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT UNIQUE,
-            user_id INTEGER,
+            session_id TEXT UNIQUE NOT NULL,
+            user_id INTEGER NOT NULL,
             username TEXT,
             summary TEXT DEFAULT '',
             status TEXT DEFAULT 'active',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TEXT NOT NULL,
+            last_activity_at TEXT NOT NULL
         )
         """
     )
@@ -29,13 +76,13 @@ def init_db():
         """
         CREATE TABLE IF NOT EXISTS interactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id TEXT,
-            user_id INTEGER,
+            session_id TEXT NOT NULL,
+            user_id INTEGER NOT NULL,
             username TEXT,
             first_name TEXT,
             question TEXT,
             answer TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TEXT NOT NULL
         )
         """
     )
@@ -50,7 +97,8 @@ def init_db():
             service_name TEXT,
             request_data TEXT,
             response_data TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            duration_ms REAL,
+            created_at TEXT NOT NULL
         )
         """
     )
@@ -65,30 +113,32 @@ def init_db():
             question TEXT,
             source_files TEXT,
             matched_text TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TEXT NOT NULL
         )
         """
     )
+
+    add_column_if_missing(cursor, "service_logs", "duration_ms", "REAL")
 
     conn.commit()
     conn.close()
 
 
-def create_session_id(user_id):
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    return f"{user_id}_{timestamp}"
-
-
 def get_or_create_session(user_id, username):
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_connection()
     cursor = conn.cursor()
+
+    now_text = get_now_text()
+    now_dt = datetime.now()
+    timeout_limit = now_dt - timedelta(minutes=SESSION_TIMEOUT_MINUTES)
 
     cursor.execute(
         """
-        SELECT session_id, last_activity_at
+        SELECT *
         FROM sessions
-        WHERE user_id = ? AND status = 'active'
-        ORDER BY id DESC
+        WHERE user_id = ?
+          AND status = 'active'
+        ORDER BY last_activity_at DESC
         LIMIT 1
         """,
         (user_id,)
@@ -97,25 +147,18 @@ def get_or_create_session(user_id, username):
     row = cursor.fetchone()
 
     if row:
-        session_id = row[0]
-        last_activity_at_text = row[1]
+        last_activity_dt = parse_datetime(row["last_activity_at"])
 
-        try:
-            last_activity_at = datetime.fromisoformat(last_activity_at_text)
-        except Exception:
-            last_activity_at = datetime.now()
+        if last_activity_dt and last_activity_dt >= timeout_limit:
+            session_id = row["session_id"]
 
-        timeout_limit = datetime.now() - timedelta(minutes=SESSION_TIMEOUT_MINUTES)
-
-        if last_activity_at >= timeout_limit:
             cursor.execute(
                 """
                 UPDATE sessions
-                SET last_activity_at = CURRENT_TIMESTAMP,
-                    username = ?
+                SET last_activity_at = ?, username = ?
                 WHERE session_id = ?
                 """,
-                (username, session_id)
+                (now_text, username, session_id)
             )
 
             conn.commit()
@@ -126,13 +169,13 @@ def get_or_create_session(user_id, username):
         cursor.execute(
             """
             UPDATE sessions
-            SET status = 'closed'
+            SET status = 'expired'
             WHERE session_id = ?
             """,
-            (session_id,)
+            (row["session_id"],)
         )
 
-    new_session_id = create_session_id(user_id)
+    session_id = create_session_id(user_id)
 
     cursor.execute(
         """
@@ -141,30 +184,40 @@ def get_or_create_session(user_id, username):
             user_id,
             username,
             summary,
-            status
+            status,
+            created_at,
+            last_activity_at
         )
-        VALUES (?, ?, ?, '', 'active')
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (new_session_id, user_id, username)
+        (
+            session_id,
+            user_id,
+            username,
+            "",
+            "active",
+            now_text,
+            now_text
+        )
     )
 
     conn.commit()
     conn.close()
 
-    return new_session_id
+    return session_id
 
 
 def update_session_activity(session_id):
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
         """
         UPDATE sessions
-        SET last_activity_at = CURRENT_TIMESTAMP
+        SET last_activity_at = ?
         WHERE session_id = ?
         """,
-        (session_id,)
+        (get_now_text(), session_id)
     )
 
     conn.commit()
@@ -172,7 +225,7 @@ def update_session_activity(session_id):
 
 
 def save_interaction(session_id, user_id, username, first_name, question, answer):
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
@@ -183,9 +236,10 @@ def save_interaction(session_id, user_id, username, first_name, question, answer
             username,
             first_name,
             question,
-            answer
+            answer,
+            created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
             session_id,
@@ -193,18 +247,34 @@ def save_interaction(session_id, user_id, username, first_name, question, answer
             username,
             first_name,
             question,
-            answer
+            answer,
+            get_now_text()
         )
+    )
+
+    cursor.execute(
+        """
+        UPDATE sessions
+        SET last_activity_at = ?
+        WHERE session_id = ?
+        """,
+        (get_now_text(), session_id)
     )
 
     conn.commit()
     conn.close()
 
-    update_session_activity(session_id)
 
-
-def save_service_log(session_id, user_id, username, service_name, request_data, response_data):
-    conn = sqlite3.connect(DB_NAME)
+def save_service_log(
+    session_id,
+    user_id,
+    username,
+    service_name,
+    request_data,
+    response_data,
+    duration_ms=None
+):
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
@@ -215,9 +285,11 @@ def save_service_log(session_id, user_id, username, service_name, request_data, 
             username,
             service_name,
             request_data,
-            response_data
+            response_data,
+            duration_ms,
+            created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             session_id,
@@ -225,7 +297,9 @@ def save_service_log(session_id, user_id, username, service_name, request_data, 
             username,
             service_name,
             request_data,
-            response_data
+            response_data,
+            duration_ms,
+            get_now_text()
         )
     )
 
@@ -234,7 +308,7 @@ def save_service_log(session_id, user_id, username, service_name, request_data, 
 
 
 def save_rag_log(session_id, user_id, username, question, source_files, matched_text):
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
@@ -245,9 +319,10 @@ def save_rag_log(session_id, user_id, username, question, source_files, matched_
             username,
             question,
             source_files,
-            matched_text
+            matched_text,
+            created_at
         )
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
             session_id,
@@ -255,7 +330,8 @@ def save_rag_log(session_id, user_id, username, question, source_files, matched_
             username,
             question,
             source_files,
-            matched_text
+            matched_text,
+            get_now_text()
         )
     )
 
@@ -264,7 +340,7 @@ def save_rag_log(session_id, user_id, username, question, source_files, matched_
 
 
 def get_session_summary(session_id):
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
@@ -282,11 +358,11 @@ def get_session_summary(session_id):
     if not row:
         return ""
 
-    return row[0] or ""
+    return row["summary"] or ""
 
 
 def update_session_summary(session_id, summary):
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
@@ -303,7 +379,7 @@ def update_session_summary(session_id, summary):
 
 
 def get_recent_interactions(session_id, limit=6):
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
@@ -320,29 +396,19 @@ def get_recent_interactions(session_id, limit=6):
     rows = cursor.fetchall()
     conn.close()
 
-    rows.reverse()
+    results = [dict(row) for row in rows]
+    results.reverse()
 
-    interactions = []
-
-    for row in rows:
-        interactions.append(
-            {
-                "question": row[0],
-                "answer": row[1],
-                "created_at": row[2]
-            }
-        )
-
-    return interactions
+    return results
 
 
 def count_session_interactions(session_id):
-    conn = sqlite3.connect(DB_NAME)
+    conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute(
         """
-        SELECT COUNT(*)
+        SELECT COUNT(*) AS total
         FROM interactions
         WHERE session_id = ?
         """,
@@ -355,30 +421,16 @@ def count_session_interactions(session_id):
     if not row:
         return 0
 
-    return row[0]
+    return row["total"]
 
 
 def get_full_session_transcript(session_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
+    interactions = get_recent_interactions(session_id, limit=50)
 
-    cursor.execute(
-        """
-        SELECT question, answer
-        FROM interactions
-        WHERE session_id = ?
-        ORDER BY id ASC
-        """,
-        (session_id,)
-    )
+    lines = []
 
-    rows = cursor.fetchall()
-    conn.close()
+    for item in interactions:
+        lines.append(f"User: {item.get('question', '')}")
+        lines.append(f"Assistant: {item.get('answer', '')}")
 
-    transcript_parts = []
-
-    for question, answer in rows:
-        transcript_parts.append(f"Kullanıcı: {question}")
-        transcript_parts.append(f"Bot: {answer}")
-
-    return "\n".join(transcript_parts)
+    return "\n".join(lines)

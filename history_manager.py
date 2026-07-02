@@ -10,66 +10,65 @@ from database import (
 from openrouter_client import summarize_session
 
 
-SUMMARY_UPDATE_INTERVAL = 9999
+SUMMARY_UPDATE_INTERVAL = 1000
 
 
-def build_history_context(session_id):
+def build_history_context(session_id, recent_limit=6):
     summary = get_session_summary(session_id)
-    recent_interactions = get_recent_interactions(session_id, limit=8)
+    recent_interactions = get_recent_interactions(session_id, limit=recent_limit)
 
-    context_parts = []
+    parts = []
 
     if summary:
-        context_parts.append("Oturum özeti:")
-        context_parts.append(summary)
+        parts.append("Session summary:")
+        parts.append(summary)
 
     if recent_interactions:
-        context_parts.append("Son konuşmalar:")
+        parts.append("Recent conversation:")
 
-        for question, answer, created_at in recent_interactions:
-            context_parts.append(f"Kullanıcı: {question}")
-            context_parts.append(f"Bot: {answer}")
+        for item in recent_interactions:
+            question = item.get("question", "")
+            answer = item.get("answer", "")
 
-    if not context_parts:
-        return ""
+            parts.append(f"User: {question}")
+            parts.append(f"Assistant: {answer}")
 
-    return "\n".join(context_parts)
+    return "\n".join(parts).strip()
 
 
 def get_session_and_history(user_id, username):
-    session_id = get_or_create_session(user_id, username)
-    history_context = build_history_context(session_id)
+    session_id = get_or_create_session(
+        user_id=user_id,
+        username=username
+    )
+
+    history_context = build_history_context(
+        session_id=session_id,
+        recent_limit=6
+    )
 
     return session_id, history_context
 
 
-def should_update_summary(session_id):
-    count = count_session_interactions(session_id)
-
-    if count == 0:
-        return False
-
-    return count % SUMMARY_UPDATE_INTERVAL == 0
-
-
 def refresh_session_summary_if_needed(session_id):
-    if not should_update_summary(session_id):
-        return
+    try:
+        interaction_count = count_session_interactions(session_id)
 
-    previous_summary = get_session_summary(session_id)
-    full_transcript = get_full_session_transcript(session_id)
+        if interaction_count == 0:
+            return
 
-    transcript_text_parts = []
+        if interaction_count % SUMMARY_UPDATE_INTERVAL != 0:
+            return
 
-    for question, answer, created_at in full_transcript:
-        transcript_text_parts.append(f"Kullanıcı: {question}")
-        transcript_text_parts.append(f"Bot: {answer}")
+        transcript = get_full_session_transcript(session_id)
 
-    transcript_text = "\n".join(transcript_text_parts)
+        if not transcript.strip():
+            return
 
-    new_summary = summarize_session(
-        previous_summary=previous_summary,
-        transcript_text=transcript_text
-    )
+        summary = summarize_session(transcript)
 
-    update_session_summary(session_id, new_summary)
+        if summary:
+            update_session_summary(session_id, summary)
+
+    except Exception as error:
+        print(f"Session summary güncellenemedi: {error}")

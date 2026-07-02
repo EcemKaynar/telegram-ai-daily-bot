@@ -1,11 +1,13 @@
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 from openrouter_client import (
     ask_openrouter_with_context,
     ask_openrouter_with_tool_result,
     analyze_image_with_openrouter,
-    ask_openrouter_with_rag
+    ask_openrouter_with_rag,
+    ask_openrouter_general_fallback
 )
 
 from tool_router import detect_tool_call
@@ -20,6 +22,14 @@ from rag_utils import (
     build_direct_rag_answer,
     detect_user_language
 )
+
+
+def now_ms():
+    return time.perf_counter()
+
+
+def elapsed_ms(start):
+    return round((time.perf_counter() - start) * 1000, 2)
 
 
 def is_bad_ai_answer(ai_answer):
@@ -73,6 +83,39 @@ def normalize_basic_text(user_text):
     text = text.strip()
 
     return text
+
+
+def is_meaningless_input(user_text):
+    text = normalize_basic_text(user_text)
+    compact = text.replace(" ", "")
+
+    if not compact:
+        return True
+
+    if len(compact) >= 5:
+        unique_chars = set(compact)
+
+        if len(unique_chars) <= 2:
+            return True
+
+        most_common_count = max(compact.count(char) for char in unique_chars)
+
+        if most_common_count / len(compact) >= 0.75:
+            return True
+
+    letter_tokens = re.findall(r"[a-zA-ZçğıöşüÇĞİÖŞÜ]+", text)
+
+    if not letter_tokens:
+        return True
+
+    return False
+
+
+def get_meaningless_input_answer(language):
+    if language == "en":
+        return "I could not understand your message clearly. Could you write it a bit more clearly?"
+
+    return "Mesajını tam anlayamadım. Biraz daha açık şekilde yazar mısın?"
 
 
 def detect_basic_conversation(user_text):
@@ -152,8 +195,6 @@ def detect_basic_conversation(user_text):
     if text in thanks or any(item in text for item in thanks if len(words) <= 6):
         return "thanks"
 
-    # Sadece kısa selamlaşmaları greeting sayıyoruz.
-    # Böylece "hi can you tell me a healthy diet" gibi cümleleri yanlışlıkla selam sanmaz.
     if text in greetings:
         return "greeting"
 
@@ -298,6 +339,252 @@ def looks_like_weather_question(user_text):
 
     return any(word in text for word in weather_words)
 
+def normalize_location_text(text):
+    text = str(text or "").strip()
+    text = re.sub(r"\s+", " ", text)
+    return text
+
+
+def normalize_location_lookup_text(text):
+    text = str(text or "").lower()
+
+    replacements = {
+        "ı": "i",
+        "i̇": "i",
+        "ğ": "g",
+        "ü": "u",
+        "ş": "s",
+        "ö": "o",
+        "ç": "c"
+    }
+
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def clean_extracted_city(city):
+    city = normalize_location_text(city)
+
+    city = re.sub(
+        r"\b(bugün|bugun|yarın|yarin|şu an|su an|şimdi|simdi|today|tomorrow|now)\b",
+        "",
+        city,
+        flags=re.IGNORECASE
+    )
+
+    city = re.sub(
+        r"\b(hava|weather|durumu|nasıl|nasil|how|is|the|in|for|için|icin)\b",
+        "",
+        city,
+        flags=re.IGNORECASE
+    )
+
+    city = re.sub(r"\s+", " ", city).strip()
+    city = city.strip(" '’`.,?!")
+
+    if not city:
+        return None
+
+    if len(city) < 2:
+        return None
+
+    return city
+
+
+def extract_city_from_weather_sentence(user_text):
+    """
+    Burada şehir listesi yok.
+    Paris, London, New York, Tokyo, Reykjavik gibi herhangi bir yer adını
+    cümle kalıbından çıkarmaya çalışır.
+    """
+
+    text = normalize_location_text(user_text)
+
+    patterns = [
+        # İstanbul'da hava nasıl, Paris'te hava nasıl
+        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)['’]?(?:da|de|ta|te)\s+(?:hava|yağmur|sıcaklık|weather)",
+
+        # İstanbul hava durumu, Paris weather
+        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)\s+(?:hava durumu|weather)",
+
+        # weather in New York, how is the weather in Berlin
+        r"(?:weather in|weather for|how is the weather in)\s+(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+)",
+
+        # New York'ta yağmur var mı, Berlin'de yağmur var mı
+        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)['’]?(?:da|de|ta|te)\s+(?:yağmur|yagmur|rain)",
+
+        # Paris için hava, Berlin için sıcaklık
+        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)\s+(?:için|icin|for)\s+(?:hava|weather|sıcaklık|sicaklik|temperature)"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+
+        if match:
+            city = clean_extracted_city(match.group("city"))
+
+            if city:
+                return city
+
+    return None
+
+
+def history_is_waiting_for_weather_city(history_context):
+    text = normalize_location_lookup_text(history_context)
+
+    indicators = [
+        "sehir adini yazar misin",
+        "hava durumunu kontrol edebilmem icin sehir",
+        "i need the city name",
+        "need the city name",
+        "city name first"
+    ]
+
+    return any(indicator in text for indicator in indicators)
+
+
+def extract_followup_weather_city(user_text, history_context):
+    """
+    Kullanıcı önce 'hava nasıl?' dedi, bot şehir sordu.
+    Sonra kullanıcı sadece 'Paris', 'New York', 'Tokyo' yazarsa bunu şehir kabul eder.
+    """
+
+    if not history_is_waiting_for_weather_city(history_context):
+        return None
+
+    text = normalize_location_text(user_text)
+    words = text.split()
+
+    if 1 <= len(words) <= 5:
+        return clean_extracted_city(text)
+
+    return None
+
+
+def extract_weather_city_with_ai(user_text, history_context):
+    """
+    Asıl doğru yöntem bu:
+    AI/tool router şehir parametresini çıkarır.
+    Şehir listesi kullanılmaz.
+    """
+
+    tool_call = detect_tool_call(
+        user_text=user_text,
+        history_context=history_context
+    )
+
+    if tool_call.get("tool") == "weather":
+        city = tool_call.get("city")
+
+        if city:
+            return clean_extracted_city(city), tool_call
+
+    return None, tool_call
+
+def normalize_city_lookup_text(text):
+    text = str(text or "").lower()
+
+    replacements = {
+        "ı": "i",
+        "i̇": "i",
+        "ğ": "g",
+        "ü": "u",
+        "ş": "s",
+        "ö": "o",
+        "ç": "c"
+    }
+
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    text = re.sub(r"[^\w\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text
+
+
+def extract_city_from_text(user_text):
+    text = normalize_city_lookup_text(user_text)
+    tokens = text.split()
+
+    for token in tokens:
+        if token in CITY_ALIASES:
+            return CITY_ALIASES[token]
+
+        for city_key, city_name in CITY_ALIASES.items():
+            if token.startswith(city_key):
+                suffix = token[len(city_key):]
+
+                if suffix in CITY_SUFFIXES:
+                    return city_name
+
+    return None
+
+
+def history_is_waiting_for_weather_city(history_context):
+    text = normalize_city_lookup_text(history_context)
+
+    indicators = [
+        "sehir adini yazar misin",
+        "hava durumunu kontrol edebilmem icin sehir",
+        "i need the city name",
+        "need the city name",
+        "city name first"
+    ]
+
+    return any(indicator in text for indicator in indicators)
+
+
+def extract_followup_weather_city(user_text, history_context):
+    if not history_is_waiting_for_weather_city(history_context):
+        return None
+
+    text = normalize_city_lookup_text(user_text)
+    tokens = text.split()
+
+    if len(tokens) > 4:
+        return None
+
+    return extract_city_from_text(user_text)
+
+
+def is_session_reference_message(user_text):
+    text = normalize_basic_text(user_text)
+
+    markers = [
+        "az önce",
+        "az once",
+        "önceki",
+        "onceki",
+        "son söylediğim",
+        "son soyledigim",
+        "son yazdığım",
+        "son yazdigim",
+        "ona göre",
+        "ona gore",
+        "buna göre",
+        "buna gore",
+        "devam et",
+        "devam",
+        "aynı şekilde",
+        "ayni sekilde",
+        "ne demiştim",
+        "ne demistim",
+        "hatırlıyor musun",
+        "hatirliyor musun",
+        "according to that",
+        "based on that",
+        "continue",
+        "what did i say",
+        "previous message",
+        "last message"
+    ]
+
+    return any(marker in text for marker in markers)
+
 
 def get_source_label(language):
     if language == "en":
@@ -326,6 +613,72 @@ def get_weather_missing_city_message(language):
         return "I can check the weather, but I need the city name first."
 
     return "Hava durumunu kontrol edebilmem için şehir adını yazar mısın?"
+
+
+def build_simple_weather_answer(weather_data, language):
+    city = weather_data.get("city") or "belirtilen şehir"
+    temperature = weather_data.get("temperature_c")
+    feels_like = weather_data.get("feels_like_c")
+    humidity = weather_data.get("humidity_percent")
+    precipitation = weather_data.get("precipitation_mm")
+    rain = weather_data.get("rain_mm")
+    wind = weather_data.get("wind_speed_kmh")
+    description = weather_data.get("weather_description")
+
+    if language == "en":
+        parts = [f"Current weather for {city}:"]
+
+        if temperature is not None:
+            parts.append(f"- Temperature: {temperature}°C")
+
+        if feels_like is not None:
+            parts.append(f"- Feels like: {feels_like}°C")
+
+        if humidity is not None:
+            parts.append(f"- Humidity: {humidity}%")
+
+        if wind is not None:
+            parts.append(f"- Wind: {wind} km/h")
+
+        if precipitation is not None:
+            parts.append(f"- Precipitation: {precipitation} mm")
+
+        if rain is not None:
+            parts.append(f"- Rain: {rain} mm")
+
+        if description:
+            parts.append(f"- Condition: {description}")
+
+        parts.append("You can use this to decide whether you need an umbrella, jacket or lighter clothing.")
+
+        return "\n".join(parts)
+
+    parts = [f"{city} için güncel hava durumu:"]
+
+    if temperature is not None:
+        parts.append(f"- Sıcaklık: {temperature}°C")
+
+    if feels_like is not None:
+        parts.append(f"- Hissedilen: {feels_like}°C")
+
+    if humidity is not None:
+        parts.append(f"- Nem: %{humidity}")
+
+    if wind is not None:
+        parts.append(f"- Rüzgar: {wind} km/sa")
+
+    if precipitation is not None:
+        parts.append(f"- Yağış: {precipitation} mm")
+
+    if rain is not None:
+        parts.append(f"- Yağmur: {rain} mm")
+
+    if description:
+        parts.append(f"- Durum: {description}")
+
+    parts.append("Buna göre şemsiye, mont/ceket veya daha hafif kıyafet ihtiyacını değerlendirebilirsin.")
+
+    return "\n".join(parts)
 
 
 def get_safe_session(user_id, username):
@@ -380,11 +733,238 @@ def safe_save_rag_log(session_id, user_id, username, question, source_files, mat
         print(f"RAG log kayıt hatası: {error}")
 
 
+def safe_save_service_log(
+    session_id,
+    user_id,
+    username,
+    service_name,
+    request_data,
+    response_data,
+    duration_ms=None
+):
+    try:
+        save_service_log(
+            session_id=session_id,
+            user_id=user_id,
+            username=username,
+            service_name=service_name,
+            request_data=request_data,
+            response_data=response_data,
+            duration_ms=duration_ms
+        )
+
+        print(f"Service log kaydedildi: {service_name} - {duration_ms} ms")
+
+    except TypeError:
+        try:
+            save_service_log(
+                session_id=session_id,
+                user_id=user_id,
+                username=username,
+                service_name=service_name,
+                request_data=request_data,
+                response_data=response_data
+            )
+
+            print(f"Service log kaydedildi: {service_name}")
+
+        except Exception as error:
+            print(f"Service log kayıt hatası: {error}")
+
+    except Exception as error:
+        print(f"Service log kayıt hatası: {error}")
+
+
+def generate_general_fallback_answer(user_text, history_context, language):
+    ai_answer, ai_error = call_with_timeout(
+        func=lambda: ask_openrouter_general_fallback(
+            user_text=user_text,
+            history_context=history_context
+        ),
+        timeout_seconds=15
+    )
+
+    if ai_error or is_bad_ai_answer(ai_answer):
+        return get_knowledge_not_found_message(language)
+
+    return ai_answer
+
+def normalize_location_text(text):
+    text = str(text or "").strip()
+    text = re.sub(r"\s+", " ", text)
+    return text
+
+
+def normalize_location_lookup_text(text):
+    text = str(text or "").lower()
+
+    replacements = {
+        "ı": "i",
+        "i̇": "i",
+        "ğ": "g",
+        "ü": "u",
+        "ş": "s",
+        "ö": "o",
+        "ç": "c"
+    }
+
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def clean_extracted_city(city):
+    city = normalize_location_text(city)
+
+    city = re.sub(
+        r"\b(bugün|bugun|yarın|yarin|şu an|su an|şimdi|simdi|today|tomorrow|now)\b",
+        "",
+        city,
+        flags=re.IGNORECASE
+    )
+
+    city = re.sub(
+        r"\b(hava|weather|durumu|nasıl|nasil|how|is|the|in|for|için|icin|yağmur|yagmur|rain|sıcaklık|sicaklik|temperature)\b",
+        "",
+        city,
+        flags=re.IGNORECASE
+    )
+
+    city = re.sub(r"\s+", " ", city).strip()
+    city = city.strip(" '’`.,?!")
+
+    if not city:
+        return None
+
+    if len(city) < 2:
+        return None
+
+    # "yaşadığım yer", "bulunduğum yer" gibi ifadeler şehir değildir.
+    invalid_location_phrases = [
+        "yaşadığım yerde",
+        "yasadigim yerde",
+        "yaşadığım yer",
+        "yasadigim yer",
+        "bulunduğum yerde",
+        "bulundugum yerde",
+        "bulunduğum yer",
+        "bulundugum yer",
+        "burada",
+        "burası",
+        "burasi",
+        "konumum"
+    ]
+
+    normalized_city = normalize_location_lookup_text(city)
+
+    if any(phrase in normalized_city for phrase in invalid_location_phrases):
+        return None
+
+    return city
+
+
+def extract_city_from_weather_sentence(user_text):
+    """
+    Şehir listesi kullanmadan cümleden lokasyon çıkarmaya çalışır.
+    Örnekler:
+    - Paris'te hava nasıl? -> Paris
+    - Londra’da hava nasıl? -> Londra
+    - weather in New York -> New York
+    """
+
+    text = normalize_location_text(user_text)
+
+    patterns = [
+        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)['’]?(?:da|de|ta|te)\s+(?:hava|yağmur|yagmur|sıcaklık|sicaklik|weather|rain|temperature)",
+        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)\s+(?:hava durumu|weather)",
+        r"(?:weather in|weather for|how is the weather in)\s+(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+)",
+        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)\s+(?:için|icin|for)\s+(?:hava|weather|sıcaklık|sicaklik|temperature)"
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+
+        if match:
+            city = clean_extracted_city(match.group("city"))
+
+            if city:
+                return city
+
+    return None
+
+
+# Eski kodda generate_ai_answer içinde extract_city_from_text çağrısı kalmış olabilir.
+# Bu fonksiyonu güvenli hale getiriyoruz.
+def extract_city_from_text(user_text):
+    return extract_city_from_weather_sentence(user_text)
+
+
+def history_is_waiting_for_weather_city(history_context):
+    text = normalize_location_lookup_text(history_context)
+
+    indicators = [
+        "sehir adini yazar misin",
+        "hava durumunu kontrol edebilmem icin sehir",
+        "i need the city name",
+        "need the city name",
+        "city name first"
+    ]
+
+    return any(indicator in text for indicator in indicators)
+
+
+def extract_followup_weather_city(user_text, history_context):
+    """
+    Kullanıcı önce 'hava nasıl?' dedi, bot şehir sordu.
+    Sonra kullanıcı sadece 'Paris', 'New York', 'İstanbul' yazarsa bunu şehir kabul eder.
+    """
+
+    if not history_is_waiting_for_weather_city(history_context):
+        return None
+
+    text = normalize_location_text(user_text)
+    words = text.split()
+
+    if 1 <= len(words) <= 5:
+        return clean_extracted_city(text)
+
+    return None
+
+
+def extract_weather_city_with_ai(user_text, history_context):
+    """
+    Asıl akıllı yol:
+    AI/tool router şehir parametresini çıkarmaya çalışır.
+    """
+
+    tool_call = detect_tool_call(
+        user_text=user_text,
+        history_context=history_context
+    )
+
+    if tool_call.get("tool") == "weather":
+        city = tool_call.get("city")
+
+        if city:
+            return clean_extracted_city(city), tool_call
+
+    return None, tool_call
+
+
 def generate_ai_answer(user_text, session_id, history_context, user_id, username):
     print("generate_ai_answer çalıştı.")
     print(f"Gelen mesaj: {user_text}")
 
     language = detect_user_language(user_text)
+
+    if is_meaningless_input(user_text):
+        return {
+            "answer": get_meaningless_input_answer(language),
+            "source_type": "invalid_or_meaningless_input",
+            "sources": []
+        }
 
     basic_answer = get_basic_conversation_answer(
         user_text=user_text,
@@ -398,85 +978,75 @@ def generate_ai_answer(user_text, session_id, history_context, user_id, username
             "sources": []
         }
 
-    if not looks_like_weather_question(user_text):
-        print("Hava durumu sorusu değil. Önce RAG çalışacak.")
+    city_from_text = extract_city_from_weather_sentence(user_text)
 
-        rag_search = search_knowledge_base(user_text)
+    followup_city = extract_followup_weather_city(
+    user_text=user_text,
+    history_context=history_context
+    )
 
-        print("RAG araması yapıldı.")
-        print(rag_search)
+    is_weather_request = looks_like_weather_question(user_text) or followup_city is not None
 
-        if rag_search["found"]:
-            rag_context = format_rag_context(rag_search["results"])
-            rag_sources = get_rag_sources_json(rag_search["results"])
+    if is_weather_request:
+        print("Hava durumu sorusu algılandı.")
 
-            print("RAG sonucu bulundu.")
-            print(rag_sources)
+        city = city_from_text or followup_city
+        tool_call = {}
 
-            safe_save_rag_log(
+        if not city:
+            print("Şehir regex ile yakalanamadı. AI tool router çalışacak.")
+            ai_city, tool_call = extract_weather_city_with_ai(
+                user_text=user_text,
+                history_context=history_context
+            )
+            if ai_city:
+                city = ai_city
+            if city:
+                print(f"Şehir yakalandı: {city}")
+
+
+            safe_save_service_log(
                 session_id=session_id,
                 user_id=user_id,
                 username=username,
-                question=user_text,
-                source_files=rag_sources,
-                matched_text=rag_context
+                service_name="deterministic_weather_city_detection",
+                request_data=to_json_text({
+                    "user_text": user_text,
+                    "history_context_used": bool(history_context)
+                }),
+                response_data=to_json_text({
+                    "city": city
+                }),
+                duration_ms=0
             )
 
-            ai_answer, rag_ai_error = call_with_timeout(
-                func=lambda: ask_openrouter_with_rag(
-                    user_text=user_text,
-                    rag_context=rag_context,
-                    history_context=history_context
-                ),
-                timeout_seconds=15
+        else:
+            print("Şehir direkt yakalanamadı. Tool calling çalışacak.")
+
+            tool_start = now_ms()
+
+            tool_call = detect_tool_call(user_text, history_context)
+
+            tool_duration = elapsed_ms(tool_start)
+
+            safe_save_service_log(
+                session_id=session_id,
+                user_id=user_id,
+                username=username,
+                service_name="tool_decision_weather",
+                request_data=to_json_text({
+                    "user_text": user_text,
+                    "history_context_used": bool(history_context)
+                }),
+                response_data=to_json_text(tool_call),
+                duration_ms=tool_duration
             )
 
-            if rag_ai_error or is_bad_ai_answer(ai_answer):
-                print(f"RAG AI cevabı üretilemedi, direkt bilgi tabanı cevabına düşüldü: {rag_ai_error}")
+            print("Tool call sonucu:")
+            print(tool_call)
 
-                ai_answer = build_direct_rag_answer(
-                    question=user_text,
-                    rag_results=rag_search["results"],
-                    language=language
-                )
-
-                return {
-                    "answer": ai_answer,
-                    "source_type": "rag_direct_fallback",
-                    "sources": rag_search["results"]
-                }
-
-            source_label = get_source_label(language)
-            first_source = rag_search["results"][0]["source_file"]
-
-            if f"{source_label}:" not in ai_answer and "Kaynak:" not in ai_answer and "Source:" not in ai_answer:
-                ai_answer = f"{ai_answer}\n\n{source_label}: {first_source}"
-
-            print("RAG cevabı AI ile üretildi.")
-
-            return {
-                "answer": ai_answer,
-                "source_type": "rag_ai",
-                "sources": rag_search["results"]
-            }
-
-        print("RAG sonucu bulunamadı.")
-
-        return {
-            "answer": get_knowledge_not_found_message(language),
-            "source_type": "knowledge_not_found",
-            "sources": []
-        }
-
-    print("Hava durumu sorusu algılandı. Tool calling çalışacak.")
-
-    tool_call = detect_tool_call(user_text, history_context)
-
-    print("Tool call sonucu:")
-    print(tool_call)
-
-    if tool_call.get("tool") == "weather":
-        city = tool_call.get("city")
+            if tool_call.get("tool") == "weather":
+                city = tool_call.get("city")
 
         if not city:
             return {
@@ -488,20 +1058,29 @@ def generate_ai_answer(user_text, session_id, history_context, user_id, username
         weather_result = get_weather_by_city(city)
 
         for log in weather_result.get("logs", []):
-            try:
-                save_service_log(
-                    session_id=session_id,
-                    user_id=user_id,
-                    username=username,
-                    service_name="open_meteo_weather",
-                    request_data=to_json_text(log.get("request")),
-                    response_data=to_json_text(log.get("response"))
-                )
-            except Exception as error:
-                print(f"Service log kayıt hatası: {error}")
+            request_log = log.get("request")
+            response_log = log.get("response")
+            duration_ms = log.get("duration_ms")
+
+            provider = "weather_api"
+
+            if isinstance(request_log, dict):
+                provider = request_log.get("provider", provider)
+
+            safe_save_service_log(
+                session_id=session_id,
+                user_id=user_id,
+                username=username,
+                service_name=provider,
+                request_data=to_json_text(request_log),
+                response_data=to_json_text(response_log),
+                duration_ms=duration_ms
+            )
 
         if weather_result["success"]:
             weather_context = to_json_text(weather_result["data"])
+
+            llm_start = now_ms()
 
             if tool_call.get("raw_tool_call") and tool_call.get("assistant_message"):
                 ai_answer = ask_openrouter_with_tool_result(
@@ -518,6 +1097,27 @@ def generate_ai_answer(user_text, session_id, history_context, user_id, username
                     history_context=history_context
                 )
 
+            llm_duration = elapsed_ms(llm_start)
+
+            if is_bad_ai_answer(ai_answer):
+                ai_answer = build_simple_weather_answer(
+                    weather_data=weather_result["data"],
+                    language=language
+                )
+
+            safe_save_service_log(
+                session_id=session_id,
+                user_id=user_id,
+                username=username,
+                service_name="weather_answer_llm",
+                request_data=to_json_text({
+                    "user_text": user_text,
+                    "weather_context": weather_result["data"]
+                }),
+                response_data=ai_answer,
+                duration_ms=llm_duration
+            )
+
             return {
                 "answer": ai_answer,
                 "source_type": "weather_tool",
@@ -530,9 +1130,105 @@ def generate_ai_answer(user_text, session_id, history_context, user_id, username
             "sources": []
         }
 
+    if is_session_reference_message(user_text):
+        print("Session referanslı mesaj algılandı.")
+
+        if history_context and history_context.strip():
+            ai_answer = generate_general_fallback_answer(
+                user_text=user_text,
+                history_context=history_context,
+                language=language
+            )
+
+            return {
+                "answer": ai_answer,
+                "source_type": "session_context_answer",
+                "sources": []
+            }
+
+        if language == "en":
+            answer = "I could not find enough previous conversation context for this session."
+        else:
+            answer = "Bu session içinde yeterli önceki konuşma bulamadım."
+
+        return {
+            "answer": answer,
+            "source_type": "session_context_missing",
+            "sources": []
+        }
+
+    print("Hava durumu sorusu değil. Önce RAG çalışacak.")
+
+    rag_search = search_knowledge_base(user_text)
+
+    print("RAG araması yapıldı.")
+    print(rag_search)
+
+    if rag_search["found"]:
+        rag_context = format_rag_context(rag_search["results"])
+        rag_sources = get_rag_sources_json(rag_search["results"])
+
+        print("RAG sonucu bulundu.")
+        print(rag_sources)
+
+        safe_save_rag_log(
+            session_id=session_id,
+            user_id=user_id,
+            username=username,
+            question=user_text,
+            source_files=rag_sources,
+            matched_text=rag_context
+        )
+
+        ai_answer, rag_ai_error = call_with_timeout(
+            func=lambda: ask_openrouter_with_rag(
+                user_text=user_text,
+                rag_context=rag_context,
+                history_context=history_context
+            ),
+            timeout_seconds=15
+        )
+
+        if rag_ai_error or is_bad_ai_answer(ai_answer):
+            print(f"RAG AI cevabı üretilemedi, direkt bilgi tabanı cevabına düşüldü: {rag_ai_error}")
+
+            ai_answer = build_direct_rag_answer(
+                question=user_text,
+                rag_results=rag_search["results"],
+                language=language
+            )
+
+            return {
+                "answer": ai_answer,
+                "source_type": "rag_direct_fallback",
+                "sources": rag_search["results"]
+            }
+
+        source_label = get_source_label(language)
+        first_source = rag_search["results"][0]["source_file"]
+
+        if f"{source_label}:" not in ai_answer and "Kaynak:" not in ai_answer and "Source:" not in ai_answer:
+            ai_answer = f"{ai_answer}\n\n{source_label}: {first_source}"
+
+        print("RAG cevabı AI ile üretildi.")
+
+        return {
+            "answer": ai_answer,
+            "source_type": "rag_ai",
+            "sources": rag_search["results"]
+        }
+
+    print("RAG sonucu bulunamadı. Güvenli genel fallback çalışacak.")
+
+    ai_answer = generate_general_fallback_answer(
+        user_text=user_text,
+        history_context=history_context,
+        language=language
+    )
+
     return {
-        "answer": get_weather_missing_city_message(language),
-        "source_type": "weather_missing_city",
+        "answer": ai_answer,
+        "source_type": "general_ai_fallback",
         "sources": []
     }
 
@@ -551,7 +1247,14 @@ def process_text_message(user_id, username, first_name, user_text):
         username=username
     )
 
-    answer = result["answer"]
+    if result is None:
+        result = {
+            "answer": "Cevap üretirken bir sorun oluştu. Lütfen tekrar dener misin?",
+            "source_type": "internal_none_result",
+            "sources": []
+        }
+
+    answer = result.get("answer", "Cevap alınamadı.")
 
     safe_save_interaction(
         session_id=session_id,
@@ -616,7 +1319,14 @@ def process_voice_message(user_id, username, first_name, audio_path, language="t
         username=username
     )
 
-    answer = result["answer"]
+    if result is None:
+        result = {
+            "answer": "Cevap üretirken bir sorun oluştu. Lütfen tekrar dener misin?",
+            "source_type": "internal_none_result",
+            "sources": []
+        }
+
+    answer = result.get("answer", "Cevap alınamadı.")
 
     safe_save_interaction(
         session_id=session_id,

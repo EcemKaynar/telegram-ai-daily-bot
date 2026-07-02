@@ -6,9 +6,9 @@ from typing import Any, List, Optional
 import telebot
 from telebot import types
 from dotenv import load_dotenv
-from fastapi import FastAPI, UploadFile, File, Form, Request
+from fastapi import FastAPI, UploadFile, File, Form, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -38,6 +38,9 @@ init_db()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "telegram-ai-bot-secret")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
+
+API_AUTH_ENABLED = os.getenv("API_AUTH_ENABLED", "false").lower() == "true"
+API_ACCESS_TOKEN = os.getenv("API_ACCESS_TOKEN", "")
 
 bot = None
 
@@ -84,6 +87,64 @@ class ChatResponse(BaseModel):
     audio_base64: Optional[str] = None
 
 
+def get_bearer_token(request: Request):
+    authorization = request.headers.get("Authorization", "")
+
+    if authorization.startswith("Bearer "):
+        return authorization.replace("Bearer ", "").strip()
+
+    return ""
+
+
+def get_api_key_token(request: Request):
+    return request.headers.get("X-API-Key", "").strip()
+
+
+def is_protected_api_path(path):
+    protected_prefixes = [
+        "/chat",
+        "/voice",
+        "/image",
+        "/admin-data"
+    ]
+
+    return any(path.startswith(prefix) for prefix in protected_prefixes)
+
+
+@app.middleware("http")
+async def api_auth_middleware(request: Request, call_next):
+    if not API_AUTH_ENABLED:
+        return await call_next(request)
+
+    path = request.url.path
+
+    if not is_protected_api_path(path):
+        return await call_next(request)
+
+    if not API_ACCESS_TOKEN:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": "API auth enabled but API_ACCESS_TOKEN is not configured."
+            }
+        )
+
+    bearer_token = get_bearer_token(request)
+    api_key_token = get_api_key_token(request)
+
+    if bearer_token == API_ACCESS_TOKEN or api_key_token == API_ACCESS_TOKEN:
+        return await call_next(request)
+
+    return JSONResponse(
+        status_code=401,
+        content={
+            "success": False,
+            "message": "Unauthorized API request."
+        }
+    )
+
+
 def get_user_info_from_telegram_message(message):
     user_id = message.from_user.id
 
@@ -104,7 +165,7 @@ def root():
         "web": "/web",
         "admin": "/admin",
         "docs": "/docs",
-        "telegram_webhook": f"/telegram/{WEBHOOK_SECRET}"
+        "telegram_webhook": "/telegram/{secret}"
     }
 
 
@@ -307,8 +368,167 @@ def set_telegram_webhook():
     }
 
 
+def handle_telegram_text_message(message, user_id, username, first_name):
+    if message.text.startswith("/start"):
+        welcome_text = (
+            "Merhaba! Ben günlük yaşamını kolaylaştırmak için hazırlanmış yapay zeka destekli bir Telegram botuyum. "
+            "Günlük planlama, verimlilik, motivasyon, rutin oluşturma, çalışma düzeni, "
+            "mola yönetimi, kahve/çay gibi günlük rutinler, basit yemek önerileri, "
+            "plan defteri, çalışma masası ve hava durumuna göre günlük hazırlık konularında yardımcı olabilirim. "
+            "Bana yazılı mesaj, fotoğraf veya sesli mesaj gönderebilirsin."
+        )
+
+        bot.reply_to(message, welcome_text)
+        return
+
+    bot.send_chat_action(message.chat.id, "typing")
+
+    result = process_text_message(
+        user_id=user_id,
+        username=username,
+        first_name=first_name,
+        user_text=message.text
+    )
+
+    bot.reply_to(message, result.get("answer", "Cevap alınamadı."))
+
+
+def handle_telegram_voice_message(message, user_id, username, first_name):
+    bot.send_chat_action(message.chat.id, "typing")
+
+    temp_voice_path = None
+    tts_voice_path = None
+
+    try:
+        file_info = bot.get_file(message.voice.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+
+        file_extension = os.path.splitext(file_info.file_path)[1]
+
+        if not file_extension:
+            file_extension = ".ogg"
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            temp_file.write(downloaded_file)
+            temp_voice_path = temp_file.name
+
+        result = process_voice_message(
+            user_id=user_id,
+            username=username,
+            first_name=first_name,
+            audio_path=temp_voice_path,
+            language="tr-TR"
+        )
+
+        transcript = result.get("transcript", "")
+        answer = result.get("answer", "Cevap alınamadı.")
+
+        text_reply = (
+            f"Sesli mesajını şöyle anladım:\n"
+            f"{transcript}\n\n"
+            f"Cevabım:\n"
+            f"{answer}"
+        )
+
+        bot.reply_to(message, text_reply)
+
+        tts_voice_path = result.get("voice_path")
+
+        if tts_voice_path and os.path.exists(tts_voice_path):
+            with open(tts_voice_path, "rb") as voice_file:
+                bot.send_voice(
+                    chat_id=message.chat.id,
+                    voice=voice_file,
+                    caption="Sesli cevap",
+                    reply_to_message_id=message.message_id
+                )
+
+    finally:
+        if temp_voice_path and os.path.exists(temp_voice_path):
+            os.remove(temp_voice_path)
+
+        if tts_voice_path and os.path.exists(tts_voice_path):
+            os.remove(tts_voice_path)
+
+
+def handle_telegram_photo_message(message, user_id, username, first_name):
+    bot.send_chat_action(message.chat.id, "typing")
+
+    temp_image_path = None
+
+    try:
+        largest_photo = message.photo[-1]
+        file_info = bot.get_file(largest_photo.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+
+        file_extension = os.path.splitext(file_info.file_path)[1]
+
+        if not file_extension:
+            file_extension = ".jpg"
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+            temp_file.write(downloaded_file)
+            temp_image_path = temp_file.name
+
+        result = process_image_message(
+            user_id=user_id,
+            username=username,
+            first_name=first_name,
+            image_path=temp_image_path,
+            caption=message.caption or ""
+        )
+
+        bot.reply_to(message, result.get("answer", "Cevap alınamadı."))
+
+    finally:
+        if temp_image_path and os.path.exists(temp_image_path):
+            os.remove(temp_image_path)
+
+
+def process_telegram_update(update_json):
+    if not bot:
+        print("Telegram bot token yok.")
+        return
+
+    try:
+        update = types.Update.de_json(update_json)
+
+        if not update.message:
+            return
+
+        message = update.message
+        user_id, username, first_name = get_user_info_from_telegram_message(message)
+
+        if message.text:
+            handle_telegram_text_message(
+                message=message,
+                user_id=user_id,
+                username=username,
+                first_name=first_name
+            )
+
+        elif message.voice:
+            handle_telegram_voice_message(
+                message=message,
+                user_id=user_id,
+                username=username,
+                first_name=first_name
+            )
+
+        elif message.photo:
+            handle_telegram_photo_message(
+                message=message,
+                user_id=user_id,
+                username=username,
+                first_name=first_name
+            )
+
+    except Exception as error:
+        print(f"Telegram update işleme hatası: {error}")
+
+
 @app.post("/telegram/{secret}")
-async def telegram_webhook(secret: str, request: Request):
+async def telegram_webhook(secret: str, request: Request, background_tasks: BackgroundTasks):
     if secret != WEBHOOK_SECRET:
         return {
             "success": False,
@@ -322,135 +542,13 @@ async def telegram_webhook(secret: str, request: Request):
         }
 
     update_json = await request.json()
-    update = types.Update.de_json(update_json)
 
-    try:
-        if update.message:
-            message = update.message
-            user_id, username, first_name = get_user_info_from_telegram_message(message)
+    background_tasks.add_task(
+        process_telegram_update,
+        update_json
+    )
 
-            if message.text:
-                if message.text.startswith("/start"):
-                    welcome_text = (
-                        "Merhaba! Ben günlük yaşamını kolaylaştırmak için hazırlanmış yapay zeka destekli bir Telegram botuyum. "
-                        "Günlük planlama, verimlilik, motivasyon, rutin oluşturma, çalışma düzeni, "
-                        "mola yönetimi, kahve/çay gibi günlük rutinler, basit yemek önerileri, "
-                        "plan defteri, çalışma masası ve hava durumuna göre günlük hazırlık konularında yardımcı olabilirim. "
-                        "Bana yazılı mesaj, fotoğraf veya sesli mesaj gönderebilirsin."
-                    )
-
-                    bot.reply_to(message, welcome_text)
-
-                else:
-                    bot.send_chat_action(message.chat.id, "typing")
-
-                    result = process_text_message(
-                        user_id=user_id,
-                        username=username,
-                        first_name=first_name,
-                        user_text=message.text
-                    )
-
-                    bot.reply_to(message, result.get("answer", "Cevap alınamadı."))
-
-            elif message.voice:
-                bot.send_chat_action(message.chat.id, "typing")
-
-                temp_voice_path = None
-                tts_voice_path = None
-
-                try:
-                    file_info = bot.get_file(message.voice.file_id)
-                    downloaded_file = bot.download_file(file_info.file_path)
-
-                    file_extension = os.path.splitext(file_info.file_path)[1]
-
-                    if not file_extension:
-                        file_extension = ".ogg"
-
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
-                        temp_file.write(downloaded_file)
-                        temp_voice_path = temp_file.name
-
-                    result = process_voice_message(
-                        user_id=user_id,
-                        username=username,
-                        first_name=first_name,
-                        audio_path=temp_voice_path,
-                        language="tr-TR"
-                    )
-
-                    transcript = result.get("transcript", "")
-                    answer = result.get("answer", "Cevap alınamadı.")
-
-                    text_reply = (
-                        f"Sesli mesajını şöyle anladım:\n"
-                        f"{transcript}\n\n"
-                        f"Cevabım:\n"
-                        f"{answer}"
-                    )
-
-                    bot.reply_to(message, text_reply)
-
-                    tts_voice_path = result.get("voice_path")
-
-                    if tts_voice_path and os.path.exists(tts_voice_path):
-                        with open(tts_voice_path, "rb") as voice_file:
-                            bot.send_voice(
-                                chat_id=message.chat.id,
-                                voice=voice_file,
-                                caption="Sesli cevap",
-                                reply_to_message_id=message.message_id
-                            )
-
-                finally:
-                    if temp_voice_path and os.path.exists(temp_voice_path):
-                        os.remove(temp_voice_path)
-
-                    if tts_voice_path and os.path.exists(tts_voice_path):
-                        os.remove(tts_voice_path)
-
-            elif message.photo:
-                bot.send_chat_action(message.chat.id, "typing")
-
-                temp_image_path = None
-
-                try:
-                    largest_photo = message.photo[-1]
-                    file_info = bot.get_file(largest_photo.file_id)
-                    downloaded_file = bot.download_file(file_info.file_path)
-
-                    file_extension = os.path.splitext(file_info.file_path)[1]
-
-                    if not file_extension:
-                        file_extension = ".jpg"
-
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
-                        temp_file.write(downloaded_file)
-                        temp_image_path = temp_file.name
-
-                    result = process_image_message(
-                        user_id=user_id,
-                        username=username,
-                        first_name=first_name,
-                        image_path=temp_image_path,
-                        caption=message.caption or ""
-                    )
-
-                    bot.reply_to(message, result.get("answer", "Cevap alınamadı."))
-
-                finally:
-                    if temp_image_path and os.path.exists(temp_image_path):
-                        os.remove(temp_image_path)
-
-        return {
-            "success": True
-        }
-
-    except Exception as error:
-        print(f"Telegram webhook error: {error}")
-
-        return {
-            "success": False,
-            "message": str(error)
-        }
+    return {
+        "success": True,
+        "message": "Update accepted."
+    }
