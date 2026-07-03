@@ -1,0 +1,91 @@
+# Focus, Productivity and Break Management Guide
+# Odaklanma, Verimlilik ve Mola Yönetimi Rehberi
+
+## 1. Dokümanın Amacı
+Bu doküman, kullanıcının odaklanmakta zorlandığı, motivasyonunun düşük olduğu veya moladan sonra çalışmaya dönemediği durumlarda botun nasıl yardımcı olması gerektiğini açıklar.
+
+## 2. Odaklanma Sorununu Anlama
+Bu bölüm, günlük yaşam asistanının 'Odaklanma Sorununu Anlama' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Odaklanma sorunu tembellik olarak yorumlanmamalıdır.
+- Görev belirsizliği, yorgunluk, dikkat dağıtıcılar, fazla seçenek ve mükemmel başlama isteği odaklanmayı zorlaştırabilir.
+- Bot önce görevi küçültme ve başlangıç adımı belirleme yaklaşımını kullanmalıdır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 3. Görevi Küçültme
+Bu bölüm, günlük yaşam asistanının 'Görevi Küçültme' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Büyük görevler küçük adımlara bölünmelidir.
+- “Ders çalışacağım” yerine “notları açıp ilk başlığı okuyacağım” gibi net adım önerilmelidir.
+- Kullanıcıya tamamını bitirmesi değil, başlaması hedeflenmelidir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 4. Beş Dakika Başlangıç Kuralı
+Bu bölüm, günlük yaşam asistanının 'Beş Dakika Başlangıç Kuralı' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Kullanıcı sadece beş dakika çalışma sözü verebilir.
+- Amaç görevi bitirmek değil, başlatmaktır.
+- Beş dakika sonunda devam edip etmeyeceğine yeniden karar verebilir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 5. Dikkat Dağıtıcıları Azaltma
+Bu bölüm, günlük yaşam asistanının 'Dikkat Dağıtıcıları Azaltma' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Telefonu uzaklaştırmak, bildirimleri kapatmak, gereksiz sekmeleri kapatmak ve masayı sadeleştirmek yardımcı olabilir.
+- Bot bunu kısa süreli odak bloğu için önermelidir; kullanıcının tüm hayatını değiştirmesi beklenmemelidir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 6. Çalışma Blokları
+Bu bölüm, günlük yaşam asistanının 'Çalışma Blokları' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- 10/3, 25/5, 45/10 gibi farklı çalışma-mola blokları kullanılabilir.
+- Odak düşükse kısa bloklar, odak iyiyse daha uzun bloklar uygundur.
+- Bot kullanıcının enerji durumuna göre süre önerebilir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 7. Mola Yönetimi
+Bu bölüm, günlük yaşam asistanının 'Mola Yönetimi' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Mola zihni toparlamak için kullanılmalıdır.
+- İyi molalar su içme, kısa yürüyüş, esneme, göz dinlendirme, kahve veya çay molası olabilir.
+- Sosyal medya molası belirsizleşirse dönüşü zorlaştırabilir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 8. Moladan Sonra Dönüş
+Bu bölüm, günlük yaşam asistanının 'Moladan Sonra Dönüş' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Molaya çıkmadan önce dönüşte yapılacak ilk küçük adım yazılmalıdır.
+- “Devam edeceğim” belirsizdir; “giriş paragrafını düzelteceğim” daha nettir.
+- Bot moladan sonra tek görevle geri dönüş önermelidir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 9. Motivasyon Düşüklüğü
+Bu bölüm, günlük yaşam asistanının 'Motivasyon Düşüklüğü' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Motivasyon her zaman başlamadan önce gelmez.
+- Küçük adım atmak motivasyonu sonradan oluşturabilir.
+- Bot kullanıcıyı zorlamak yerine başlangıcı kolaylaştırmalıdır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 10. Verimsiz Günler
+Bu bölüm, günlük yaşam asistanının 'Verimsiz Günler' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Her gün yüksek performans beklenmemelidir.
+- Verimsiz günlerde minimum uygulanabilir plan yapılabilir.
+- Bir ana görev, kısa çalışma bloğu ve temel ihtiyaç kontrolü yeterli olabilir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 11. Kısa Özet
+Odaklanma desteğinde amaç kullanıcıyı zorlamak değil, başlamayı kolaylaştırmaktır. Bot küçük görev, kısa çalışma bloğu, dikkat dağıtıcı azaltma ve mola dönüş planı önermelidir.
+
+## Uygun Cevap İlkesi
+Bot, bu kaynak dokümandaki bilgileri son kullanıcıya doğrudan madde madde kopyalamak yerine, kullanıcının sorusuna uygun kısa ve doğal bir cevap üretmelidir. Cevap sonunda gerekiyorsa yalnızca kaynak dosya adı gösterilmelidir. Son kullanıcıya chunk id, threshold değeri, skor, embedding veya teknik retrieval bilgisi gösterilmemelidir.

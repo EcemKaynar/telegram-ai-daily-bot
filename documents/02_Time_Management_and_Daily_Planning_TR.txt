@@ -1,0 +1,99 @@
+# Time Management and Daily Planning Guide
+# Zaman Yönetimi, Önceliklendirme ve Günlük Planlama Rehberi
+
+## 1. Dokümanın Amacı
+Bu doküman, kullanıcının gününü daha gerçekçi, sürdürülebilir ve uygulanabilir şekilde planlamasına yardımcı olmak için hazırlanmıştır. Günlük planlama kusursuz bir takvim oluşturmak değil, kullanıcının enerjisini ve zamanını daha iyi yönetmesini sağlamaktır.
+
+## 2. Günlük Planlamanın Temel Mantığı
+Bu bölüm, günlük yaşam asistanının 'Günlük Planlamanın Temel Mantığı' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Günlük plan, tüm günü dakika dakika doldurmak için değil, yapılacak işleri görünür hale getirmek için kullanılır.
+- İyi plan esnek olmalıdır; beklenmeyen işler, yorgunluk ve molalar için boşluk bırakmalıdır.
+- Plan kullanıcıya kontrol hissi vermeli, başarısızlık hissi oluşturmamalıdır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 3. Üç Ana Görev Yaklaşımı
+Bu bölüm, günlük yaşam asistanının 'Üç Ana Görev Yaklaşımı' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Kullanıcı gün içinde çok fazla şey yapmak istiyorsa önce en önemli üç görev seçilmelidir.
+- Bu üç görev günün ana omurgasıdır; diğer küçük işler enerji ve zaman kalırsa yapılabilir.
+- Enerji düşükse üç görev yerine bir ana görev ve iki küçük destek görevi daha uygundur.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 4. Önceliklendirme
+Bu bölüm, günlük yaşam asistanının 'Önceliklendirme' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Görevler “bugün mutlaka yapılacaklar”, “yapılırsa iyi olacaklar” ve “ertelenebilirler” olarak ayrılabilir.
+- Bugün yetişmesi gereken işler ana plana alınmalıdır.
+- Ertelenebilir işler bilinçli olarak başka güne taşınmalıdır; bu başarısızlık değildir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 5. Küçük Başlangıç Adımı
+Bu bölüm, günlük yaşam asistanının 'Küçük Başlangıç Adımı' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Büyük görevler zihinsel direnç oluşturur.
+- “Raporu yaz” yerine “dosyayı aç ve başlıkları yaz” gibi küçük adımlar seçilmelidir.
+- Bot kullanıcıya ilk beş dakikalık adımı buldurmalıdır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 6. Zaman Bloklama
+Bu bölüm, günlük yaşam asistanının 'Zaman Bloklama' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Görevler yaklaşık zaman aralıklarına yerleştirilebilir.
+- 25 dakika çalışma 5 dakika mola, 45 dakika çalışma 10 dakika mola gibi bloklar kullanılabilir.
+- Bloklar katı kurallar değil, günü yönetilebilir kılan çerçevelerdir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 7. Enerjiye Göre Planlama
+Bu bölüm, günlük yaşam asistanının 'Enerjiye Göre Planlama' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Sabah enerjisi yüksek olan kullanıcı zor işi sabaha koyabilir.
+- Enerji düşükse görevler küçültülmeli ve hafif işler öne alınmalıdır.
+- Bot kullanıcının yorgun olduğunu anladığında minimum uygulanabilir plan önermelidir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 8. Plan Defteri Kullanımı
+Bu bölüm, günlük yaşam asistanının 'Plan Defteri Kullanımı' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Plan defteri basit tutulmalıdır: tarih, günün hedefi, üç ana görev, küçük işler ve gün sonu notu yeterlidir.
+- Çok fazla kategori ve renk planı karmaşık hale getirebilir.
+- Dijital ajanda kullanan kullanıcı için görev ve randevular ayrılabilir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 9. Plan Bozulduğunda
+Bu bölüm, günlük yaşam asistanının 'Plan Bozulduğunda' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Plan bozulursa gün tamamen kaybedilmiş sayılmaz.
+- Kalan sürede tek bir küçük görev seçilebilir.
+- Bot “kalan zamanı kurtarma planı” önermelidir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 10. Sabah Planı
+Bu bölüm, günlük yaşam asistanının 'Sabah Planı' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Sabah planı kısa olmalıdır: su iç, ana hedefi seç, ilk görevi başlat.
+- Sabah acele eden kullanıcı için iki adımlı mini plan yeterli olabilir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 11. Akşam Değerlendirmesi
+Bu bölüm, günlük yaşam asistanının 'Akşam Değerlendirmesi' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Gün sonunda nelerin tamamlandığı, neyin fazla geldiği ve yarına ne taşınacağı gözden geçirilebilir.
+- Değerlendirme kendini eleştirme değil, ertesi günü daha gerçekçi planlama aracıdır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 12. Kısa Özet
+Günlük planlama öncelik, küçük adım, zaman bloğu ve esneklik üzerine kurulmalıdır. Bot kullanıcının gününü sadeleştirmeli, her işi aynı anda yaptırmaya çalışmamalıdır.
+
+## Uygun Cevap İlkesi
+Bot, bu kaynak dokümandaki bilgileri son kullanıcıya doğrudan madde madde kopyalamak yerine, kullanıcının sorusuna uygun kısa ve doğal bir cevap üretmelidir. Cevap sonunda gerekiyorsa yalnızca kaynak dosya adı gösterilmelidir. Son kullanıcıya chunk id, threshold değeri, skor, embedding veya teknik retrieval bilgisi gösterilmemelidir.

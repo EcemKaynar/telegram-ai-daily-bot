@@ -53,10 +53,38 @@ def is_bad_ai_answer(ai_answer):
         "model could not generate",
         "i could not generate a proper answer",
         "please try again in a few seconds"
+        "<pad>",
     ]
 
     return any(phrase in cleaned_lower for phrase in bad_phrases)
+def clean_final_answer(answer):
+    if answer is None:
+        return ""
 
+    answer = str(answer)
+
+    bad_tokens = [
+        "<pad>",
+        "<PAD>",
+        "<s>",
+        "</s>",
+        "[INST]",
+        "[/INST]",
+        "<|begin_of_text|>",
+        "<|end_of_text|>",
+        "<|eot_id|>"
+    ]
+
+    for token in bad_tokens:
+        answer = answer.replace(token, "")
+
+    answer = re.sub(r"\n{3,}", "\n\n", answer)
+    answer = re.sub(r"[ \t]+", " ", answer)
+
+    # Bazı modeller markdown bold işaretlerini fazla basıyor.
+    answer = answer.replace("**", "")
+
+    return answer.strip()
 
 def call_with_timeout(func, timeout_seconds=15):
     executor = ThreadPoolExecutor(max_workers=1)
@@ -309,35 +337,60 @@ def get_basic_conversation_answer(user_text, language):
             )
 
     return None
-
-
 def looks_like_weather_question(user_text):
-    text = user_text.lower()
+    text = normalize_basic_text(user_text)
 
-    weather_words = [
+    # Net hava durumu kelimeleri
+    direct_weather_words = [
         "hava",
+        "hava durumu",
         "yağmur",
+        "yagmur",
+        "yağacak",
+        "yagacak",
         "şemsiye",
+        "semsiye",
         "sıcaklık",
-        "soğuk",
+        "sicaklik",
+        "derece",
         "rüzgar",
-        "mont",
-        "ceket",
-        "üşür",
-        "üşürüm",
-        "giymeliyim",
-        "giysem",
-        "dışarı",
+        "ruzgar",
+        "kar",
+        "fırtına",
+        "firtina",
+        "forecast",
         "weather",
         "rain",
         "umbrella",
         "temperature",
         "wind",
-        "cold",
-        "hot"
+        "snow",
+        "storm"
     ]
 
-    return any(word in text for word in weather_words)
+    if any(word in text for word in direct_weather_words):
+        return True
+
+    # Kıyafet sorusu hava bağlamında olabilir ama sadece "dışarı" kelimesi yetmez.
+    clothing_weather_patterns = [
+        "ne giysem",
+        "ne giymeliyim",
+        "mont gerekir mi",
+        "ceket gerekir mi",
+        "üşür müyüm",
+        "usur muyum",
+        "üşürüm",
+        "usurum",
+        "soğuk mu",
+        "soguk mu",
+        "sıcak mı",
+        "sicak mi"
+    ]
+
+    if any(pattern in text for pattern in clothing_weather_patterns):
+        return True
+
+    return False
 
 def normalize_location_text(text):
     text = str(text or "").strip()
@@ -1186,7 +1239,7 @@ def generate_ai_answer(user_text, session_id, history_context, user_id, username
                 rag_context=rag_context,
                 history_context=history_context
             ),
-            timeout_seconds=15
+            timeout_seconds=45
         )
 
         if rag_ai_error or is_bad_ai_answer(ai_answer):
@@ -1195,9 +1248,20 @@ def generate_ai_answer(user_text, session_id, history_context, user_id, username
             ai_answer = build_direct_rag_answer(
                 question=user_text,
                 rag_results=rag_search["results"],
-                language=language
+                language=language,
+                history_context=history_context
             )
-
+            if is_bad_ai_answer(ai_answer):
+                 if language == "en":
+                    ai_answer = (
+                "I found relevant information in the knowledge base, but I could not generate a proper answer right now. "
+                "Please try again in a few seconds."
+            )
+            else:
+                ai_answer = (
+                "Bilgi tabanında ilgili bilgi buldum fakat şu anda düzgün bir cevap üretemedim. "
+                "Birkaç saniye sonra tekrar dener misin?"
+            )
             return {
                 "answer": ai_answer,
                 "source_type": "rag_direct_fallback",
@@ -1254,7 +1318,7 @@ def process_text_message(user_id, username, first_name, user_text):
             "sources": []
         }
 
-    answer = result.get("answer", "Cevap alınamadı.")
+    answer = clean_final_answer(result.get("answer", "Cevap alınamadı."))
 
     safe_save_interaction(
         session_id=session_id,

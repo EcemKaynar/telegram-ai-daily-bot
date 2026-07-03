@@ -541,32 +541,189 @@ def extract_relevant_sentences(question, rag_results, max_sentences=5):
 
     return selected
 
+def get_combined_question_context(question, history_context=""):
+    combined = f"{history_context or ''}\n\nKullanıcının son mesajı: {question or ''}"
+    return combined.strip()
 
-def build_topic_template_answer(question, source_file, language):
+
+def extract_time_hint(text):
+    normalized = normalize_text(text)
+
+    hour_patterns = [
+        r"(\d+)\s*saat",
+        r"(\d+)\s*hour"
+    ]
+
+    for pattern in hour_patterns:
+        match = re.search(pattern, normalized)
+
+        if match:
+            try:
+                return int(match.group(1))
+            except Exception:
+                return None
+
+    if "yarim saat" in normalized or "yarım saat" in normalized:
+        return 0.5
+
+    return None
+
+
+def has_any(text, keywords):
+    normalized = normalize_text(text)
+
+    return any(normalize_text(keyword) in normalized for keyword in keywords)
+
+
+def build_morning_routine_answer(question, source_file, history_context=""):
+    combined = get_combined_question_context(question, history_context)
+    available_hours = extract_time_hint(combined)
+
+    likes_walking = has_any(combined, ["yürüyüş", "yuruyus", "walk", "walking"])
+    likes_outside = has_any(combined, ["dışarı", "disari", "outside"])
+    likes_social = has_any(combined, ["arkadaş", "arkadas", "sohbet", "friend", "friends", "chat"])
+
+    if available_hours and available_hours >= 3:
+        routine = (
+            "Tabii, verdiğin bilgilere göre 3 saatlik daha keyifli ve sürdürülebilir bir sabah rutini şöyle olabilir:\n\n"
+            "1. İlk 15 dakika: Güne yavaş başla, su iç, yüzünü yıka ve kendini toparla.\n"
+            "2. 15-30 dakika: Hafif bir kahvaltı veya kahve/çay hazırlığı yap.\n"
+            "3. 45-60 dakika: Dışarı çıkıp yürüyüş yap. Bu kısmı hem hareket hem de zihni açma zamanı gibi düşünebilirsin.\n"
+            "4. 30-45 dakika: Eve dönünce duş, hazırlanma veya kısa toparlanma zamanı ayır.\n"
+            "5. 30 dakika: Günün en önemli 2-3 görevini yaz. Çok uzun liste yapmadan sadece öncelikleri belirle.\n"
+            "6. Kalan zaman: Arkadaşlarınla kısa bir sohbet, mesajlaşma veya keyifli bir mola ekleyebilirsin.\n\n"
+            "Bu rutinin amacı sabahı sadece görevlerle doldurmak değil; hareket, hazırlık, planlama ve sosyal keyfi dengeli şekilde birleştirmek."
+        )
+
+        return f"{routine}\n\nKaynak: {source_file}"
+
+    if likes_walking or likes_outside or likes_social:
+        routine = (
+            "Tabii, sevdiğin şeylere göre daha doğal bir sabah rutini oluşturabiliriz:\n\n"
+            "1. Güne su içip kendini toparlayarak başla.\n"
+            "2. Kısa bir kahvaltı veya kahve/çay molası koy.\n"
+            "3. Dışarı çıkıp yürüyüş yapabileceğin bir zaman ayır.\n"
+            "4. Eve dönünce günün en önemli 2-3 görevini yaz.\n"
+            "5. Arkadaşlarınla sohbet etmek istiyorsan bunu rutinin ödül veya keyif kısmı gibi ekleyebilirsin.\n\n"
+            "Böylece sabah rutinin hem düzenli hem de sana iyi gelen şeyleri içeren bir yapıya dönüşür."
+        )
+
+        return f"{routine}\n\nKaynak: {source_file}"
+
+    routine = (
+        "Tabii, senin için sade ve uygulanabilir bir sabah rutini şöyle olabilir:\n\n"
+        "1. İlk 5-10 dakika: Su iç, yüzünü yıka ve kendini toparla.\n"
+        "2. 10-20 dakika: Hafif kahvaltı veya kahve/çay hazırlığı yap.\n"
+        "3. 10 dakika: Bugünün ana hedefini ve en önemli 3 görevini yaz.\n"
+        "4. 25-30 dakika: İlk küçük göreve başla veya kısa bir yürüyüş yap.\n"
+        "5. Son 5 dakika: Gün içinde ihtiyacın olacak şeyleri kontrol et.\n\n"
+        "Bu rutini çok uzun tutmadan başlatmak daha iyi olur. Birkaç gün denedikten sonra sana iyi gelen kısımları koruyup gereksiz gelenleri çıkarabilirsin."
+    )
+
+    return f"{routine}\n\nKaynak: {source_file}"
+
+
+def build_daily_planning_answer(question, source_file, history_context=""):
+    answer = (
+        "Tabii, senin için uygulanabilir bir günlük plan yapısı şöyle olabilir:\n\n"
+        "1. Önce aklındaki tüm işleri kısa bir listeye dök.\n"
+        "2. Bu listeden bugün gerçekten önemli olan 3 görevi seç.\n"
+        "3. Her görev için sadece ilk küçük adımı belirle.\n"
+        "4. Günü 2-3 çalışma bloğuna ayır ve aralara kısa molalar koy.\n"
+        "5. Planın tamamını doldurma; beklenmeyen işler için boşluk bırak.\n"
+        "6. Gün sonunda neyin işe yaradığını ve yarına ne kalacağını kısaca kontrol et.\n\n"
+        "Örnek mini plan:\n"
+        "- Sabah: En önemli görevin ilk adımı\n"
+        "- Öğlen: Daha kısa işler veya iletişim işleri\n"
+        "- Öğleden sonra: İkinci odak bloğu\n"
+        "- Akşam: Kısa toparlama ve yarının ana hedefini belirleme"
+    )
+
+    return f"{answer}\n\nKaynak: {source_file}"
+
+
+def build_focus_answer(question, source_file, history_context=""):
+    answer = (
+        "Odaklanmakta zorlanıyorsan önce işi büyütmeden başlamak daha iyi olur:\n\n"
+        "1. Şu an yapman gereken tek bir görevi seç.\n"
+        "2. Bu görevi 5 dakikada başlayabileceğin kadar küçült.\n"
+        "3. Telefon, bildirim veya açık sekmeler gibi dikkat dağıtıcıları kısa süreliğine azalt.\n"
+        "4. 10-15 dakikalık küçük bir çalışma bloğu başlat.\n"
+        "5. Blok bitince kısa mola ver ve devam edip etmeyeceğine karar ver.\n\n"
+        "Amaç bir anda çok verimli olmak değil; yeniden başlamayı kolaylaştırmak."
+    )
+
+    return f"{answer}\n\nKaynak: {source_file}"
+
+
+def build_break_answer(question, source_file, history_context=""):
+    answer = (
+        "Mola sonrası çalışmaya dönmek için molaya çıkmadan önce dönüş adımını belirlemek iyi olur:\n\n"
+        "1. Moladan önce döndüğünde yapacağın ilk küçük işi yaz.\n"
+        "2. Mola süresini net belirle; örneğin 10 dakika.\n"
+        "3. Molada gerçekten zihnini toparlayacak bir şey yap: su içmek, kısa yürüyüş, esneme gibi.\n"
+        "4. Mola bitince sadece yazdığın küçük adıma başla.\n"
+        "5. Devam etmek kolay gelirse çalışma bloğunu uzatabilirsin.\n\n"
+        "Örneğin 'çalışmaya döneceğim' yerine 'raporun ilk paragrafını düzenleyeceğim' demek daha işe yarar."
+    )
+
+    return f"{answer}\n\nKaynak: {source_file}"
+
+
+def build_meal_answer(question, source_file, history_context=""):
+    answer = (
+        "Bugün basit ve uğraştırmayan bir şey istiyorsan şu seçeneklerden birini seçebilirsin:\n\n"
+        "1. Yumurtalı tost + ayran veya çay\n"
+        "2. Yoğurt + yulaf + meyve\n"
+        "3. Makarna + yoğurt + salata\n"
+        "4. Omlet + ekmek + domates/salatalık\n"
+        "5. Mercimek çorbası + ekmek\n\n"
+        "Hafif bir şey istiyorsan yoğurtlu seçenek daha iyi olur. Daha doyurucu bir şey istiyorsan tost, omlet veya makarna daha uygun olabilir."
+    )
+
+    return f"{answer}\n\nKaynak: {source_file}"
+
+
+def build_safety_answer(question, source_file, history_context=""):
+    answer = (
+        "Bu konu karar verirken dikkatli olunması gereken bir alan gibi görünüyor. "
+        "Doğrudan yatırım, sağlık, hukuk veya benzeri profesyonel karar tavsiyesi vermem doğru olmaz.\n\n"
+        "Daha güvenli yaklaşım şu olabilir:\n"
+        "1. Kararı tek bir cevaba göre verme.\n"
+        "2. Güvenilir kaynaklardan araştır.\n"
+        "3. Riskleri ve kendi durumunu değerlendir.\n"
+        "4. Gerekirse ilgili uzmana danış.\n\n"
+        "İstersen bu konuyu karar verirken dikkat edilecek genel başlıklar şeklinde toparlayabilirim."
+    )
+
+    return f"{answer}\n\nKaynak: {source_file}"
+def build_topic_template_answer(question, source_file, language, history_context=""):
     topic = infer_query_topic(question)
+
+    combined_context = get_combined_question_context(question, history_context)
+    normalized_combined = normalize_text(combined_context)
 
     if language == "en":
         templates = {
             "daily_planning": (
-                "Daily planning should make the day manageable rather than completely full. "
-                "A practical plan can start with choosing the 3 most important tasks, then selecting one very small first step. "
-                "It is also useful to leave space for breaks and unexpected changes instead of planning every minute."
+                "A practical daily plan can start with choosing the 3 most important tasks, "
+                "breaking each one into a small first step, and leaving space for breaks and unexpected changes."
             ),
             "focus_productivity": (
-                "When focus is low, it is better to reduce the size of the task instead of forcing yourself to do everything. "
-                "Choose one clear task, remove distractions for a short period and start with a small action."
+                "When focus is low, choose one clear task, reduce it to a small first step, "
+                "remove distractions for a short period and start with a short work block."
             ),
             "break_management": (
-                "Breaks should help you return to work with a clearer mind. "
-                "After a short coffee or tea break, choose one small task and continue with a simple work block."
+                "A good break should make it easier to return to work. Before the break, decide the first small step you will do when you come back."
             ),
             "daily_routine": (
-                "A daily routine should be simple and repeatable. "
-                "A short morning start, a few realistic tasks and a small evening review can make the day feel more organized."
+                "A useful routine should be simple, repeatable and realistic. Start with a short morning structure, a few clear tasks and a small review."
             ),
             "simple_meals": (
-                "Simple meal planning should focus on easy and manageable options. "
-                "Instead of a strict diet plan, it can help to choose practical meals that fit your daily routine."
+                "For a simple meal, choose an easy option such as eggs and toast, yogurt with oats and fruit, pasta with yogurt, or a quick salad."
+            ),
+            "safe_fallback": (
+                "This topic may require professional judgment. I cannot give a direct decision, but I can help you think through general safety points."
             ),
         }
 
@@ -577,41 +734,56 @@ def build_topic_template_answer(question, source_file, language):
 
         return f"{answer}\n\nSource: {source_file}"
 
-    templates = {
-        "daily_planning": (
-            "Günlük planlama, günü tamamen doldurmak için değil günü daha yönetilebilir hale getirmek için yapılmalıdır. "
-            "Pratik bir plan için önce günün en önemli 3 görevi seçilebilir, ardından bu görevlerden birine çok küçük bir başlangıç adımı belirlenebilir. "
-            "Planın içine mola ve esneklik payı bırakmak da önemlidir; çünkü her dakikayı dolduran planlar çoğu zaman sürdürülebilir olmaz."
-        ),
-        "focus_productivity": (
-            "Odaklanmakta zorlanıyorsan önce görevi küçültmek daha doğru olur. "
-            "Tek bir net görev seçip kısa bir süre için dikkat dağıtıcı şeyleri azaltabilir ve işe çok küçük bir adımla başlayabilirsin."
-        ),
-        "break_management": (
-            "Mola, çalışmayı bölmekten çok zihni toparlamak için kullanılmalıdır. "
-            "Kahve veya çay molasından sonra yeniden başlamak için tek bir küçük görev seçmek ve kısa bir çalışma bloğu belirlemek faydalı olur."
-        ),
-        "daily_routine": (
-            "Günlük rutin sade ve tekrar edilebilir olmalıdır. "
-            "Kısa bir sabah başlangıcı, gerçekçi birkaç görev ve gün sonunda küçük bir değerlendirme, günü daha düzenli hissettirebilir."
-        ),
-        "simple_meals": (
-            "Basit yemek planı, karmaşık bir diyet listesi gibi değil günlük rutine uyacak pratik seçenekler gibi düşünülmelidir. "
-            "Çok uğraştırmayan, kolay hazırlanabilen ve günü aksatmayan öğünler tercih edilebilir."
-        ),
-        "safe_fallback": (
-            "Bu konu botun ana bilgi alanı dışında veya dikkatli cevap verilmesi gereken bir alan olabilir. "
-            "Kesin karar veya profesyonel tavsiye vermek yerine güvenilir kaynaklara ya da ilgili uzmana danışmak daha doğru olur."
-        ),
-    }
+    if topic == "daily_routine":
+        if "sabah" in normalized_combined or "morning" in normalized_combined or "rutin" in normalized_combined:
+            return build_morning_routine_answer(
+                question=question,
+                source_file=source_file,
+                history_context=history_context
+            )
 
-    answer = templates.get(
-        topic,
-        "Bilgi tabanında ilgili bir kaynak buldum ancak seçilen metinden net bir cevap oluşturamadım."
+    if topic == "daily_planning":
+        return build_daily_planning_answer(
+            question=question,
+            source_file=source_file,
+            history_context=history_context
+        )
+
+    if topic == "focus_productivity":
+        return build_focus_answer(
+            question=question,
+            source_file=source_file,
+            history_context=history_context
+        )
+
+    if topic == "break_management":
+        return build_break_answer(
+            question=question,
+            source_file=source_file,
+            history_context=history_context
+        )
+
+    if topic == "simple_meals":
+        return build_meal_answer(
+            question=question,
+            source_file=source_file,
+            history_context=history_context
+        )
+
+    if topic == "safe_fallback":
+        return build_safety_answer(
+            question=question,
+            source_file=source_file,
+            history_context=history_context
+        )
+
+    answer = (
+        "Bilgi tabanında bu konuyla ilgili kaynak buldum. "
+        "Buna göre daha net yardımcı olabilmem için isteğini biraz daha spesifik yazabilirsin. "
+        "Örneğin plan, rutin, odaklanma, mola veya yemek önerisi istediğini belirtebilirsin."
     )
 
     return f"{answer}\n\nKaynak: {source_file}"
-
 
 def build_english_direct_answer(question, rag_results):
     source_file = rag_results[0].get("source_file", "")
@@ -650,8 +822,7 @@ def build_english_direct_answer(question, rag_results):
 
     return f"{answer}\n\nSource: {source_file}"
 
-
-def build_turkish_direct_answer(question, rag_results):
+def build_turkish_direct_answer(question, rag_results, history_context=""):
     source_file = rag_results[0].get("source_file", "")
 
     topic = infer_query_topic(question)
@@ -667,7 +838,8 @@ def build_turkish_direct_answer(question, rag_results):
         return build_topic_template_answer(
             question=question,
             source_file=source_file,
-            language="tr"
+            language="tr",
+            history_context=history_context
         )
 
     sentences = extract_relevant_sentences(
@@ -688,7 +860,8 @@ def build_turkish_direct_answer(question, rag_results):
         return build_topic_template_answer(
             question=question,
             source_file=source_file,
-            language="tr"
+            language="tr",
+            history_context=history_context
         )
 
     answer = "Bilgi tabanındaki ilgili bölümlere göre, "
@@ -696,8 +869,7 @@ def build_turkish_direct_answer(question, rag_results):
 
     return f"{answer}\n\nKaynak: {source_file}"
 
-
-def build_direct_rag_answer(question, rag_results, language=None):
+def build_direct_rag_answer(question, rag_results, language=None, history_context=""):
     detected_language = language or detect_user_language(question)
 
     if not rag_results:
@@ -710,11 +882,15 @@ def build_direct_rag_answer(question, rag_results, language=None):
 
         return (
             "Bu konuda bilgi tabanımda yeterli bilgi bulamadım. "
-            "Şu an yalnızca günlük planlama, odaklanma, mola yönetimi, plan defteri, günlük rutin, "
-            "basit yemek fikirleri ve hava durumuna göre hazırlık konularındaki bilgi tabanıma göre cevap verebilirim."
+            "Şu an günlük planlama, odaklanma, mola yönetimi, rutin oluşturma, "
+            "basit yemek fikirleri ve hava durumuna göre hazırlık konularında daha iyi yardımcı olabilirim."
         )
 
     if detected_language == "en":
         return build_english_direct_answer(question, rag_results)
 
-    return build_turkish_direct_answer(question, rag_results)
+    return build_turkish_direct_answer(
+        question=question,
+        rag_results=rag_results,
+        history_context=history_context
+    )

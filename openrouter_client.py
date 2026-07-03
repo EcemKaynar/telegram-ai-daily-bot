@@ -761,82 +761,63 @@ User caption:
         return "Fotoğrafı analiz ederken bir sorun oluştu. Lütfen tekrar dener misin?"
 
 def ask_openrouter_with_rag(user_text, rag_context, history_context=""):
-    from rag_utils import detect_user_language
+    system_prompt = """
+You are a helpful daily-life assistant.
 
-    detected_language = detect_user_language(user_text)
+Use the provided knowledge base context as background information, but do not copy it directly.
 
-    if detected_language == "en":
-        language_instruction = (
-            "The user's message is in English. Answer in English. "
-            "You may use Turkish knowledge base content, but explain it naturally in English."
-        )
-        fallback_message = (
-            "The AI model could not generate a proper answer right now. "
-            "Please try again in a few seconds."
-        )
-    else:
-        language_instruction = (
-            "Kullanıcının mesajı Türkçe. Cevabı Türkçe ver."
-        )
-        fallback_message = (
-            "Şu an yapay zeka modeli düzgün bir cevap üretemedi. "
-            "Lütfen birkaç saniye sonra tekrar dener misin?"
-        )
-
-    system_prompt = f"""
-You are a helpful assistant for a daily-life Telegram and web bot.
-
-You must follow these rules:
-- Use only the provided knowledge base chunks when answering knowledge-based questions.
-- Do not copy the chunks directly. Synthesize the answer in your own words.
-- The knowledge base may include multiple chunks. Choose the most relevant chunks yourself.
-- If the chunks are not enough to answer, clearly say that the knowledge base does not contain enough information.
-- Do not invent facts that are not supported by the provided chunks.
-- Use the conversation history only to understand follow-up messages such as "continue", "according to that", "az önce", "ona göre".
-- Keep the answer practical, short and useful.
-- Do not mention internal technical details like RAG, threshold, chunks, scores or embeddings.
-- Do not include page numbers, page headers, chunk IDs, topic labels or keyword lists in the final answer.
-- Add only the source file name at the end.
-- {language_instruction}
+Important rules:
+- Answer in the same language as the user's latest message.
+- If the user asks in English, answer in English even if the knowledge base context is Turkish.
+- If the user asks in Turkish, answer in Turkish.
+- Do not mention RAG, chunks, threshold, embeddings, retrieval, scores, tools, middleware or internal system details.
+- Do not say "according to the relevant parts of my knowledge base".
+- Do not expose raw source text or document headings.
+- Do not output model artifacts such as <pad>, <s>, </s>, [INST], [/INST].
+- Be conversational, practical and specific.
+- If the user asks you to create a plan, routine, schedule, checklist or recommendation, create it directly.
+- Do not ask many questions before helping.
+- If information is missing, make a reasonable simple version first, then ask at most one short follow-up question at the end.
+- Use conversation history to personalize the answer when possible.
+- If the user gives preferences, time limits, likes, dislikes or constraints, use them.
+- Keep the answer clean and readable.
 """
 
     user_prompt = f"""
 Conversation history:
-{history_context}
+{history_context or "No previous conversation context."}
 
-Retrieved knowledge base content:
+Knowledge base context:
 {rag_context}
 
-User message:
+User's latest message:
 {user_text}
 
-Now answer the user according to the rules. Do not copy the source text directly.
+Write a helpful answer to the user's latest message.
+
+Rules for this answer:
+- Same language as the user's latest message.
+- Use the knowledge base only as background.
+- Do not copy the context.
+- If the user asks for a daily plan, create a daily plan immediately.
+- If the user asks for a routine, create a routine immediately.
+- If details are missing, create a simple general version and ask only one optional follow-up question at the end.
+- Do not include <pad> or any other model artifact.
 """
 
-    try:
-        answer = send_chat_request(
-            messages=[
-                {
-                    "role": "system",
-                    "content": system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": user_prompt
-                }
-            ],
-            temperature=0.2,
-            max_tokens=700,
-            model_pool=CHAT_MODEL_POOL
-        )
+    messages = [
+        {
+            "role": "system",
+            "content": system_prompt.strip()
+        },
+        {
+            "role": "user",
+            "content": user_prompt.strip()
+        }
+    ]
 
-        return answer
-
-    except Exception as error:
-        print(f"RAG OpenRouter error: {error}")
-        return fallback_message
-
-
+    return send_chat_request(messages)
+    
 def ask_openrouter_general_fallback(user_text, history_context=""):
     from rag_utils import detect_user_language
 

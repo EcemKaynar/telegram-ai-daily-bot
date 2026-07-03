@@ -1,0 +1,78 @@
+# Weather-Based Daily Preparation Guide
+# Hava Durumuna Göre Günlük Hazırlık Rehberi
+
+## 1. Dokümanın Amacı
+Bu doküman, botun hava durumu verisini günlük hazırlık kararlarına dönüştürmesini sağlar. Amaç sadece sıcaklık bilgisini söylemek değil, kullanıcıya şemsiye, ceket, ayakkabı, çanta ve dışarı çıkış planı konusunda pratik öneriler sunmaktır.
+
+## 2. Hava Sorularını Anlama
+Bu bölüm, günlük yaşam asistanının 'Hava Sorularını Anlama' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Şehir açıkça belirtilmişse weather tool kullanılmalıdır.
+- Şehir yoksa bot şehir istemelidir.
+- “Yaşadığım yerde hava nasıl?” gibi sorularda konum bilinmediği için şehir sorulmalıdır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 3. Şehir Devam Mesajı
+Bu bölüm, günlük yaşam asistanının 'Şehir Devam Mesajı' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Kullanıcı önce “hava nasıl?” derse bot şehir ister.
+- Sonra kullanıcı sadece “Paris” veya “İzmir” yazarsa bu önceki hava durumu isteğinin devamı olarak anlaşılmalıdır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 4. Weather Verisini Yorumlama
+Bu bölüm, günlük yaşam asistanının 'Weather Verisini Yorumlama' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Sıcaklık, hissedilen sıcaklık, yağış, rüzgar ve nem birlikte yorumlanmalıdır.
+- Kullanıcıya gereksiz teknik hava verisi yerine günlük karar desteği verilmelidir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 5. Şemsiye Kararı
+Bu bölüm, günlük yaşam asistanının 'Şemsiye Kararı' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Yağış varsa şemsiye önerilebilir.
+- Yağış görünmüyorsa kesin konuşulmamalı; uzun süre dışarıda kalacaksa küçük şemsiye taşımak güvenli olabilir denebilir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 6. Ceket ve Katmanlı Giyim
+Bu bölüm, günlük yaşam asistanının 'Ceket ve Katmanlı Giyim' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Hissedilen sıcaklık düşükse ceket veya hırka önerilebilir.
+- Rüzgar varsa hava dereceden daha serin hissedilebilir.
+- Sıcak havalarda hafif kıyafet ve su önerilebilir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 7. Ayakkabı ve Çanta Hazırlığı
+Bu bölüm, günlük yaşam asistanının 'Ayakkabı ve Çanta Hazırlığı' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Yağmurlu havalarda suya dayanıklı ayakkabı ve çanta koruması önerilebilir.
+- Sıcak havalarda su şişesi ve güneş gözlüğü eklenebilir.
+- Soğuk havalarda atkı, bere veya kapalı ayakkabı düşünülebilir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 8. Ulaşım Planı
+Bu bölüm, günlük yaşam asistanının 'Ulaşım Planı' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Yağmur veya kötü hava varsa yola biraz erken çıkmak önerilebilir.
+- Bot trafik verisi yoksa kesin trafik yorumu yapmamalıdır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 9. Tool Hatası
+Bu bölüm, günlük yaşam asistanının 'Tool Hatası' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Weather API sonucu alınamazsa bot sade hata mesajı vermelidir.
+- Teknik loglar son kullanıcıya gösterilmemelidir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 10. Kısa Özet
+Hava durumu cevaplarında bot şehir yoksa şehir istemeli, şehir varsa tool kullanmalı ve veriyi pratik hazırlık önerisine dönüştürmelidir. Konum uydurmamalı ve kesin hava garantisi vermemelidir.
+
+## Uygun Cevap İlkesi
+Bot, bu kaynak dokümandaki bilgileri son kullanıcıya doğrudan madde madde kopyalamak yerine, kullanıcının sorusuna uygun kısa ve doğal bir cevap üretmelidir. Cevap sonunda gerekiyorsa yalnızca kaynak dosya adı gösterilmelidir. Son kullanıcıya chunk id, threshold değeri, skor, embedding veya teknik retrieval bilgisi gösterilmemelidir.

@@ -1,0 +1,77 @@
+# Practical Meal Planning and Daily Care Guide
+# Pratik Öğün Planlama ve Günlük Öz Bakım Rehberi
+
+## 1. Dokümanın Amacı
+Bu doküman, botun kullanıcıya basit yemek fikirleri, yoğun günlerde öğün planlama ve temel öz bakım hatırlatmaları konusunda yardımcı olmasını sağlar. Bot kişiye özel diyet programı yazmamalı, sadece günlük pratik öneriler sunmalıdır.
+
+## 2. Pratik Öğün Mantığı
+Bu bölüm, günlük yaşam asistanının 'Pratik Öğün Mantığı' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Amaç karmaşık tarif vermek değil, kullanıcıya karar kolaylığı sağlamaktır.
+- Öneriler kısa malzemeli, kolay hazırlanabilir ve günlük rutine uygun olmalıdır.
+- Kullanıcıya çok fazla seçenek vermek yerine 2-3 iyi seçenek sunulmalıdır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 3. Basit Öğün Yapısı
+Bu bölüm, günlük yaşam asistanının 'Basit Öğün Yapısı' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Genel bir öğünde protein, doyurucu temel ve sebze/salata düşünülebilir.
+- Bu katı diyet kuralı değildir, sadece denge fikri verir.
+- Örnek: yumurta-ekmek-domates, yoğurt-yulaf-meyve, makarna-yoğurt-salata.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 4. Yoğun Gün Seçenekleri
+Bu bölüm, günlük yaşam asistanının 'Yoğun Gün Seçenekleri' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Tost ve ayran, yoğurtlu yulaf, omlet, makarna ve yoğurt, mercimek çorbası gibi seçenekler önerilebilir.
+- Bot evde ne olduğunu sorarak öneriyi netleştirebilir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 5. Çalışma Gününde Yemek
+Bu bölüm, günlük yaşam asistanının 'Çalışma Gününde Yemek' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Öğün atlamamak enerji için önemlidir ancak bot tıbbi beslenme tavsiyesi vermemelidir.
+- Evden çalışan kullanıcıya pratik öğle seçenekleri, ofiste çalışan kullanıcıya taşınabilir seçenekler önerilebilir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 6. Kararsızlıkta Seçenek Azaltma
+Bu bölüm, günlük yaşam asistanının 'Kararsızlıkta Seçenek Azaltma' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- “Ne yesem bilmiyorum” sorusunda bot seçenekleri azaltmalıdır.
+- Hafif, doyurucu ve hızlı seçenekler olarak üç kategori sunabilir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 7. Temel Öz Bakım Kontrolü
+Bu bölüm, günlük yaşam asistanının 'Temel Öz Bakım Kontrolü' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Su içmek, kısa hareket etmek, gözleri dinlendirmek ve yemek yemeyi hatırlamak günlük destek kapsamındadır.
+- Bot bunu baskıcı değil nazik şekilde hatırlatmalıdır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 8. Yorgun Günlerde Yemek
+Bu bölüm, günlük yaşam asistanının 'Yorgun Günlerde Yemek' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Enerji düşükse mükemmel yemek hazırlamak hedeflenmemelidir.
+- Basit ama doyurucu bir seçenek seçmek daha gerçekçidir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 9. Güvenli Sınırlar
+Bu bölüm, günlük yaşam asistanının 'Güvenli Sınırlar' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Bot kilo verme diyeti, hastalığa özel beslenme planı, kalori hedefi veya takviye önerisi vermemelidir.
+- Alerji, hastalık veya özel durum varsa uzman desteği önerilmelidir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 10. Kısa Özet
+Pratik yemek önerileri günlük yaşamı kolaylaştırmalı, tıbbi veya diyetisyen tavsiyesi gibi görünmemelidir. Bot basit, ulaşılabilir ve güvenli öğün fikirleri sunmalıdır.
+
+## Uygun Cevap İlkesi
+Bot, bu kaynak dokümandaki bilgileri son kullanıcıya doğrudan madde madde kopyalamak yerine, kullanıcının sorusuna uygun kısa ve doğal bir cevap üretmelidir. Cevap sonunda gerekiyorsa yalnızca kaynak dosya adı gösterilmelidir. Son kullanıcıya chunk id, threshold değeri, skor, embedding veya teknik retrieval bilgisi gösterilmemelidir.

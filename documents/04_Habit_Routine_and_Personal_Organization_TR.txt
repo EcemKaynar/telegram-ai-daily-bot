@@ -1,0 +1,90 @@
+# Habit, Routine and Personal Organization Guide
+# Alışkanlık, Rutin ve Kişisel Organizasyon Rehberi
+
+## 1. Dokümanın Amacı
+Bu doküman, botun sabah rutini, akşam rutini, alışkanlık oluşturma, plan defteri kullanımı ve kişisel organizasyon konularında daha tutarlı öneriler verebilmesi için hazırlanmıştır.
+
+## 2. Rutin Nedir?
+Bu bölüm, günlük yaşam asistanının 'Rutin Nedir?' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Rutin belirli bir zamanda veya belirli bir davranıştan sonra tekrar edilen küçük adımlar bütünüdür.
+- Rutinler karar yorgunluğunu azaltır.
+- İyi rutinler kısa, sürdürülebilir ve kullanıcının gerçek hayatına uygun olmalıdır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 3. Sabah Rutini
+Bu bölüm, günlük yaşam asistanının 'Sabah Rutini' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Sabah rutini uzun olmak zorunda değildir.
+- Su içmek, günün ana hedefini seçmek ve ilk küçük görevi belirlemek yeterli olabilir.
+- Sabah vakti az olan kullanıcıya mini rutin önerilmelidir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 4. Akşam Rutini
+Bu bölüm, günlük yaşam asistanının 'Akşam Rutini' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Akşam rutini ertesi günü kolaylaştırır.
+- Çanta hazırlama, kıyafet seçme, ertesi günün ana görevini yazma ve çalışma alanını toparlama yararlı olabilir.
+- Akşam rutini ağır bir görev listesine dönüşmemelidir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 5. Alışkanlık Oluşturma
+Bu bölüm, günlük yaşam asistanının 'Alışkanlık Oluşturma' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Yeni alışkanlık mevcut bir davranışa bağlanırsa daha kolay uygulanır.
+- Kahveden sonra plan defterine bakmak veya diş fırçaladıktan sonra cilt bakımını yapmak örnek olabilir.
+- Alışkanlık küçük başlamalıdır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 6. Plan Defteri ile Takip
+Bu bölüm, günlük yaşam asistanının 'Plan Defteri ile Takip' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Basit takip sistemi daha sürdürülebilirdir.
+- Kontrol kutucukları, günün hedefi ve kısa değerlendirme alanı yeterlidir.
+- Çok detaylı takip kullanıcıyı yorabilir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 7. Zihinsel Toparlama
+Bu bölüm, günlük yaşam asistanının 'Zihinsel Toparlama' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Kullanıcı kafasının karışık olduğunu söylüyorsa önce tüm işleri dışarı aktarması önerilebilir.
+- Liste yapıldıktan sonra sadece acil ve önemli olanlar seçilir.
+- Tek bir başlangıç görevi belirlenir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 8. Fiziksel Toparlama
+Bu bölüm, günlük yaşam asistanının 'Fiziksel Toparlama' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Masa, çanta veya çalışma alanı 5 dakikalık kısa toparlama ile düzenlenebilir.
+- Amaç büyük temizlik değil, dikkat dağıtan küçük şeyleri azaltmaktır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 9. Rutin Bozulduğunda
+Bu bölüm, günlük yaşam asistanının 'Rutin Bozulduğunda' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Rutin bozulursa tamamını geri getirmeye çalışmak yerine en küçük parça seçilmelidir.
+- Örneğin sabah rutini bozulduysa sadece su içme ve plan defterine bakma adımı geri getirilebilir.
+- Bot kullanıcıyı yargılamamalıdır.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 10. Haftalık Düzenleme
+Bu bölüm, günlük yaşam asistanının 'Haftalık Düzenleme' konusu altında kullanıcının ihtiyacını daha doğru anlaması ve daha uygulanabilir cevaplar üretmesi için hazırlanmıştır. Bot, bu başlıkta genel ve soyut açıklamalar yapmak yerine kullanıcının günlük hayatında hemen deneyebileceği küçük öneriler sunmalıdır.
+
+- Haftalık plan, yoğun günleri ve dinlenme ihtiyacını görmeye yardımcı olur.
+- Bot haftayı tamamen doldurmak yerine ana hedefleri belirlemeyi önermelidir.
+
+Örnek kullanım açısından, kullanıcı bu konuyla ilgili kısa ve belirsiz bir mesaj yazarsa bot önce bağlamı anlamaya çalışmalı, eksik bilgi varsa tek bir net soru sormalı, yeterli bilgi varsa doğrudan uygulanabilir bir öneri sunmalıdır. Cevaplarda teknik sistem detayları gösterilmemeli; kullanıcıya sade, profesyonel ve destekleyici bir dil kullanılmalıdır.
+
+## 11. Kısa Özet
+Rutin ve alışkanlık önerileri sade, küçük ve sürdürülebilir olmalıdır. Bot kullanıcının düzen kurmasına yardım etmeli ama kusursuzluk baskısı yaratmamalıdır.
+
+## Uygun Cevap İlkesi
+Bot, bu kaynak dokümandaki bilgileri son kullanıcıya doğrudan madde madde kopyalamak yerine, kullanıcının sorusuna uygun kısa ve doğal bir cevap üretmelidir. Cevap sonunda gerekiyorsa yalnızca kaynak dosya adı gösterilmelidir. Son kullanıcıya chunk id, threshold değeri, skor, embedding veya teknik retrieval bilgisi gösterilmemelidir.
