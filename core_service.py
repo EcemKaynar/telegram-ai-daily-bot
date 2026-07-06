@@ -1,62 +1,173 @@
+import json
+import os
 import re
-import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
-
-from openrouter_client import (
-    ask_openrouter_with_context,
-    ask_openrouter_with_tool_result,
-    analyze_image_with_openrouter,
-    ask_openrouter_with_rag,
-    ask_openrouter_general_fallback
-)
-
-from tool_router import detect_tool_call
-from tools.weather_tool import get_weather_by_city, to_json_text
-from database import save_interaction, save_service_log, save_rag_log
-from history_manager import get_session_and_history
-from voice_utils import speech_to_text, text_to_speech
-from rag_utils import (
-    search_knowledge_base,
-    format_rag_context,
-    get_rag_sources_json,
-    build_direct_rag_answer,
-    detect_user_language
-)
+import traceback
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+from datetime import datetime
+from pathlib import Path
 
 
-def now_ms():
-    return time.perf_counter()
+# -------------------------------------------------------------------
+# ENV LOADER
+# -------------------------------------------------------------------
+
+def load_env_file():
+    env_path = Path(".env")
+
+    if not env_path.exists():
+        return
+
+    try:
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+
+            if not line or line.startswith("#"):
+                continue
+
+            if "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+    except Exception as error:
+        print(f".env okunamadı: {error}")
 
 
-def elapsed_ms(start):
-    return round((time.perf_counter() - start) * 1000, 2)
+load_env_file()
 
 
-def is_bad_ai_answer(ai_answer):
-    if ai_answer is None:
-        return True
+# -------------------------------------------------------------------
+# OPTIONAL IMPORTS
+# -------------------------------------------------------------------
 
-    if not isinstance(ai_answer, str):
-        return True
+try:
+    from openrouter_client import ask_openrouter_with_rag
+except Exception as error:
+    ask_openrouter_with_rag = None
+    print(f"ask_openrouter_with_rag import edilemedi: {error}")
 
-    cleaned = ai_answer.strip()
-    cleaned_lower = cleaned.lower()
+try:
+    from openrouter_client import send_chat_request
+except Exception as error:
+    send_chat_request = None
+    print(f"send_chat_request import edilemedi: {error}")
 
-    if cleaned in ["", "[]", "{}", "null", "None", "none", "undefined"]:
-        return True
+try:
+    from rag_utils import search_knowledge_base, format_rag_context
+except Exception as error:
+    search_knowledge_base = None
+    format_rag_context = None
+    print(f"rag_utils import edilemedi: {error}")
 
-    bad_phrases = [
-        "şu an yapay zeka modeli düzgün bir cevap üretemedi",
-        "yapay zeka modeli düzgün bir cevap üretemedi",
-        "birkaç saniye sonra tekrar dener misin",
-        "ai model could not generate",
-        "model could not generate",
-        "i could not generate a proper answer",
-        "please try again in a few seconds"
-        "<pad>",
+try:
+    from qdrant_rag_tool import (
+        search_qdrant_knowledge_base,
+        format_qdrant_rag_context,
+        get_qdrant_sources_json
+    )
+except Exception as error:
+    search_qdrant_knowledge_base = None
+    format_qdrant_rag_context = None
+    get_qdrant_sources_json = None
+    print(f"qdrant_rag_tool import edilemedi: {error}")
+
+
+# -------------------------------------------------------------------
+# SIMPLE IN-MEMORY SESSION FALLBACK
+# -------------------------------------------------------------------
+
+LOCAL_HISTORY = {}
+WAITING_FOR_WEATHER_CITY = {}
+
+
+# -------------------------------------------------------------------
+# GENERAL UTILS
+# -------------------------------------------------------------------
+
+def run_with_timeout(func, timeout_seconds, *args, **kwargs):
+    executor = ThreadPoolExecutor(max_workers=1)
+
+    try:
+        future = executor.submit(func, *args, **kwargs)
+        return future.result(timeout=timeout_seconds)
+
+    except FutureTimeoutError:
+        raise TimeoutError(f"İşlem {timeout_seconds} saniye içinde tamamlanamadı.")
+
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+
+
+def normalize_basic_text(text):
+    text = str(text or "").lower().strip()
+
+    replacements = {
+        "ı": "i",
+        "ğ": "g",
+        "ü": "u",
+        "ş": "s",
+        "ö": "o",
+        "ç": "c"
+    }
+
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    text = re.sub(r"\s+", " ", text)
+
+    return text.strip()
+
+
+def detect_language(text):
+    raw = str(text or "")
+    normalized = normalize_basic_text(raw)
+
+    turkish_markers = [
+        "nasıl",
+        "nasil",
+        "ne yapmalıyım",
+        "ne yapmaliyim",
+        "bugün",
+        "bugun",
+        "yemek",
+        "hava",
+        "planlama",
+        "odaklanamiyorum",
+        "olur mu",
+        "miyim",
+        "misin",
+        "lütfen",
+        "lutfen"
     ]
 
-    return any(phrase in cleaned_lower for phrase in bad_phrases)
+    english_markers = [
+        "can you",
+        "could you",
+        "daily plan",
+        "what should",
+        "how can",
+        "please",
+        "routine",
+        "schedule"
+    ]
+
+    if any(marker in normalized for marker in turkish_markers):
+        return "tr"
+
+    if any(marker in normalized for marker in english_markers):
+        return "en"
+
+    if any(char in raw for char in ["ç", "ğ", "ı", "ö", "ş", "ü", "Ç", "Ğ", "İ", "Ö", "Ş", "Ü"]):
+        return "tr"
+
+    return "tr"
+
+
 def clean_final_answer(answer):
     if answer is None:
         return ""
@@ -81,282 +192,445 @@ def clean_final_answer(answer):
     answer = re.sub(r"\n{3,}", "\n\n", answer)
     answer = re.sub(r"[ \t]+", " ", answer)
 
-    # Bazı modeller markdown bold işaretlerini fazla basıyor.
+    # Önceki model çıktılarında gereksiz bold kalıntıları oluyordu.
     answer = answer.replace("**", "")
 
     return answer.strip()
 
-def call_with_timeout(func, timeout_seconds=15):
-    executor = ThreadPoolExecutor(max_workers=1)
-    future = executor.submit(func)
 
-    try:
-        result = future.result(timeout=timeout_seconds)
-        executor.shutdown(wait=False, cancel_futures=True)
-        return result, None
-
-    except TimeoutError:
-        executor.shutdown(wait=False, cancel_futures=True)
-        return None, "timeout"
-
-    except Exception as error:
-        executor.shutdown(wait=False, cancel_futures=True)
-        return None, str(error)
-
-
-def normalize_basic_text(user_text):
-    text = str(user_text or "").lower().strip()
-    text = re.sub(r"\s+", " ", text)
-    text = re.sub(r"[^\wçğıöşü\s]", "", text)
-    text = text.strip()
-
-    return text
-
-
-def is_meaningless_input(user_text):
-    text = normalize_basic_text(user_text)
-    compact = text.replace(" ", "")
-
-    if not compact:
+def is_bad_ai_answer(answer):
+    if answer is None:
         return True
 
-    if len(compact) >= 5:
-        unique_chars = set(compact)
+    text = str(answer).strip()
 
-        if len(unique_chars) <= 2:
-            return True
+    if not text:
+        return True
 
-        most_common_count = max(compact.count(char) for char in unique_chars)
+    normalized = normalize_basic_text(text)
 
-        if most_common_count / len(compact) >= 0.75:
-            return True
+    bad_phrases = [
+        "<pad>",
+        "openrouter response icinde choices bulunamadi",
+        "openrouter response içinde choices bulunamadı",
+        "cevap alinamadi",
+        "cevap alınamadı",
+        "su an yapay zeka modeli duzgun bir cevap uretemedi",
+        "şu an yapay zeka modeli düzgün bir cevap üretemedi",
+        "bilgi tabaninda ilgili bilgi buldum fakat",
+        "bilgi tabanında ilgili bilgi buldum fakat",
+        "according to the relevant parts of my knowledge base",
+        "rag threshold",
+        "chunk score",
+        "embedding score",
+        "middleware",
+        "retrieval score"
+    ]
 
-    letter_tokens = re.findall(r"[a-zA-ZçğıöşüÇĞİÖŞÜ]+", text)
+    if any(phrase in normalized for phrase in bad_phrases):
+        return True
 
-    if not letter_tokens:
+    if len(text) < 2:
         return True
 
     return False
 
 
-def get_meaningless_input_answer(language):
+def build_local_fallback_answer(user_text, language="tr"):
+    normalized = normalize_basic_text(user_text)
+
     if language == "en":
-        return "I could not understand your message clearly. Could you write it a bit more clearly?"
+        if "daily plan" in normalized or "schedule" in normalized:
+            return (
+                "Sure — here is a simple daily plan you can use:\n\n"
+                "Morning:\n"
+                "- Choose your top 3 priorities.\n"
+                "- Start with the most important task.\n"
+                "- Use one focused work block before checking messages.\n\n"
+                "Midday:\n"
+                "- Handle smaller tasks, messages or errands.\n"
+                "- Take a short break and reset your focus.\n\n"
+                "Afternoon:\n"
+                "- Do one more focused work session.\n"
+                "- Leave buffer time for unexpected tasks.\n\n"
+                "Evening:\n"
+                "- Review what you completed.\n"
+                "- Move unfinished tasks to tomorrow.\n"
+                "- Pick one main goal for the next day."
+            )
 
-    return "Mesajını tam anlayamadım. Biraz daha açık şekilde yazar mısın?"
+        return (
+            "I can help with that. Start with one small, clear step instead of trying to solve everything at once. "
+            "Choose the most important thing, work on it for 20–25 minutes, then take a short break."
+        )
+
+    if "odak" in normalized or "verimsiz" in normalized or "calisamiyorum" in normalized:
+        return (
+            "Odaklanamıyorsan önce kendini zorlamak yerine işi küçült. Şöyle deneyebilirsin:\n\n"
+            "1. Yapman gereken işi tek cümleyle yaz.\n"
+            "2. Sadece ilk 10 dakikalık kısmı seç.\n"
+            "3. Telefonu ve dikkat dağıtan şeyleri uzaklaştır.\n"
+            "4. 25 dakika çalış, 5 dakika mola ver.\n"
+            "5. Moladan önce dönüşte yapacağın ilk küçük adımı not al.\n\n"
+            "Bugün çok verimsiz hissediyorsan hedefi küçült: tek ana görev + kısa çalışma bloğu yeterli olabilir."
+        )
+
+    if "yemek" in normalized or "ne yesem" in normalized or "ne yiyebilirim" in normalized:
+        return (
+            "Bugün basit ve doyurucu bir şey istiyorsan şu seçeneklerden biri iyi olur:\n\n"
+            "- Tost + ayran\n"
+            "- Omlet + ekmek + domates/salatalık\n"
+            "- Makarna + yoğurt\n"
+            "- Mercimek çorbası + ekmek\n"
+            "- Yoğurtlu yulaf veya pratik kahvaltı tabağı\n\n"
+            "Enerjin düşükse mükemmel yemek yapmaya çalışma; doyurucu ve kolay bir seçenek seçmen yeterli."
+        )
+
+    if "bitcoin" in normalized or "kripto" in normalized or "yatirim" in normalized:
+        return (
+            "Bu konuda doğrudan “al” ya da “alma” şeklinde yatırım tavsiyesi veremem. "
+            "Bitcoin ve kripto varlıklar yüksek dalgalanma ve risk içerir. Karar vermeden önce risk toleransını, "
+            "bütçeni, kaybetmeyi göze alabileceğin tutarı ve güvenilir uzman görüşlerini değerlendirmen daha doğru olur."
+        )
+
+    return (
+        "Bunu daha yönetilebilir hale getirmek için önce küçük bir adım seçebilirsin. "
+        "Yapman gereken şeyi netleştir, en önemli kısmı belirle ve 20–25 dakikalık kısa bir başlangıç yap."
+    )
 
 
-def detect_basic_conversation(user_text):
+# -------------------------------------------------------------------
+# HISTORY HELPERS
+# -------------------------------------------------------------------
+
+def get_history_context(user_id, limit=6):
+    user_key = str(user_id)
+
+    try:
+        import history_manager
+
+        possible_functions = [
+            "get_history_context",
+            "get_recent_history_context",
+            "get_conversation_context",
+            "get_recent_messages_text"
+        ]
+
+        for function_name in possible_functions:
+            function = getattr(history_manager, function_name, None)
+
+            if not function:
+                continue
+
+            try:
+                return function(user_id=user_id, limit=limit)
+            except TypeError:
+                try:
+                    return function(user_id, limit)
+                except TypeError:
+                    return function(user_id)
+
+    except Exception:
+        pass
+
+    history = LOCAL_HISTORY.get(user_key, [])[-limit:]
+
+    if not history:
+        return ""
+
+    lines = []
+
+    for item in history:
+        user_message = item.get("user", "")
+        assistant_message = item.get("assistant", "")
+
+        if user_message:
+            lines.append(f"User: {user_message}")
+
+        if assistant_message:
+            lines.append(f"Assistant: {assistant_message}")
+
+    return "\n".join(lines).strip()
+
+
+def save_history_context(user_id, user_text, answer):
+    user_key = str(user_id)
+
+    try:
+        import history_manager
+
+        possible_functions = [
+            "save_interaction",
+            "add_interaction",
+            "append_history",
+            "save_message_pair",
+            "add_message_pair"
+        ]
+
+        for function_name in possible_functions:
+            function = getattr(history_manager, function_name, None)
+
+            if not function:
+                continue
+
+            try:
+                function(user_id=user_id, user_text=user_text, answer=answer)
+                return
+            except TypeError:
+                try:
+                    function(user_id, user_text, answer)
+                    return
+                except TypeError:
+                    continue
+
+    except Exception:
+        pass
+
+    LOCAL_HISTORY.setdefault(user_key, []).append({
+        "user": user_text,
+        "assistant": answer,
+        "created_at": datetime.now().isoformat()
+    })
+
+    LOCAL_HISTORY[user_key] = LOCAL_HISTORY[user_key][-20:]
+
+
+# -------------------------------------------------------------------
+# DATABASE LOGGING
+# -------------------------------------------------------------------
+
+def log_interaction_to_db(
+    user_id,
+    username,
+    first_name,
+    user_text,
+    answer,
+    source_type,
+    sources
+):
+    sources_json = json.dumps(sources or [], ensure_ascii=False)
+
+    try:
+        import database
+
+        payload = {
+            "user_id": user_id,
+            "username": username,
+            "first_name": first_name,
+            "question": user_text,
+            "message": user_text,
+            "user_message": user_text,
+            "user_text": user_text,
+            "answer": answer,
+            "bot_answer": answer,
+            "source_type": source_type,
+            "sources": sources_json,
+            "sources_json": sources_json
+        }
+
+        possible_functions = [
+            "save_interaction",
+            "log_interaction",
+            "insert_interaction",
+            "record_interaction",
+            "add_interaction"
+        ]
+
+        for function_name in possible_functions:
+            function = getattr(database, function_name, None)
+
+            if not function:
+                continue
+
+            try:
+                function(**payload)
+                print("Interaction DB kaydı yapıldı.")
+                return True
+            except Exception:
+                pass
+
+            try:
+                function(
+                    user_id,
+                    username,
+                    first_name,
+                    user_text,
+                    answer,
+                    source_type,
+                    sources_json
+                )
+                print("Interaction DB kaydı yapıldı.")
+                return True
+            except Exception:
+                pass
+
+            try:
+                function(user_id, user_text, answer)
+                print("Interaction DB kaydı yapıldı.")
+                return True
+            except Exception:
+                pass
+
+    except Exception as error:
+        print(f"database.py üzerinden kayıt denenemedi: {error}")
+
+    try:
+        import sqlite3
+
+        db_path = os.getenv("DATABASE_PATH", "bot_messages.db")
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS interactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT,
+                user_id TEXT,
+                username TEXT,
+                first_name TEXT,
+                question TEXT,
+                answer TEXT,
+                created_at TEXT
+            )
+        """)
+
+        cursor.execute("PRAGMA table_info(interactions)")
+        columns_info = cursor.fetchall()
+        existing_columns = [column[1] for column in columns_info]
+
+        row_data = {}
+
+        if "session_id" in existing_columns:
+            row_data["session_id"] = f"{user_id}_web_session"
+
+        if "user_id" in existing_columns:
+            row_data["user_id"] = str(user_id)
+
+        if "username" in existing_columns:
+            row_data["username"] = username or ""
+
+        if "first_name" in existing_columns:
+            row_data["first_name"] = first_name or ""
+
+        if "question" in existing_columns:
+            row_data["question"] = user_text or ""
+
+        if "user_message" in existing_columns:
+            row_data["user_message"] = user_text or ""
+
+        if "message" in existing_columns:
+            row_data["message"] = user_text or ""
+
+        if "answer" in existing_columns:
+            row_data["answer"] = answer or ""
+
+        if "bot_answer" in existing_columns:
+            row_data["bot_answer"] = answer or ""
+
+        if "source_type" in existing_columns:
+            row_data["source_type"] = source_type or ""
+
+        if "sources_json" in existing_columns:
+            row_data["sources_json"] = sources_json
+
+        if "sources" in existing_columns:
+            row_data["sources"] = sources_json
+
+        if "created_at" in existing_columns:
+            row_data["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        if not row_data:
+            raise RuntimeError("interactions tablosunda yazılabilecek uygun kolon bulunamadı.")
+
+        columns = list(row_data.keys())
+        placeholders = ", ".join(["?"] * len(columns))
+        column_sql = ", ".join(columns)
+        values = [row_data[column] for column in columns]
+
+        cursor.execute(
+            f"INSERT INTO interactions ({column_sql}) VALUES ({placeholders})",
+            values
+        )
+
+        conn.commit()
+        conn.close()
+
+        print("Interaction DB kaydı yapıldı. Mevcut tablo kolonlarına göre SQLite kullanıldı.")
+        return True
+
+    except Exception as error:
+        print(f"Interaction DB kaydı yapılamadı: {error}")
+        return False
+
+# -------------------------------------------------------------------
+# BASIC CONVERSATION
+# -------------------------------------------------------------------
+
+def get_basic_conversation_answer(user_text, language="tr"):
     text = normalize_basic_text(user_text)
-    words = text.split()
-
-    if not text:
-        return None
 
     greetings = [
         "merhaba",
         "selam",
-        "selamlar",
+        "slm",
         "hello",
         "hi",
-        "hey",
-        "günaydın",
-        "gunaydin",
-        "iyi akşamlar",
-        "iyi aksamlar",
-        "iyi geceler"
+        "hey"
     ]
 
     how_are_you = [
-        "nasılsın",
         "nasilsin",
+        "nasilsin?",
         "naber",
         "ne haber",
-        "how are you",
-        "how r u",
-        "how are u"
+        "how are you"
     ]
 
     thanks = [
-        "teşekkürler",
         "tesekkurler",
-        "teşekkür ederim",
         "tesekkur ederim",
-        "sağ ol",
         "sag ol",
-        "sağol",
-        "sagol",
+        "sağ ol",
         "thanks",
-        "thank you",
-        "thx"
+        "thank you"
     ]
-
-    help_questions = [
-        "ne yapabiliyorsun",
-        "neler yapabilirsin",
-        "bana nasıl yardımcı olabilirsin",
-        "bana nasil yardimci olabilirsin",
-        "yardım",
-        "yardim",
-        "help",
-        "what can you do",
-        "how can you help me",
-        "what do you do"
-    ]
-
-    who_are_you = [
-        "sen kimsin",
-        "kimsin",
-        "who are you",
-        "what are you"
-    ]
-
-    if any(item in text for item in who_are_you):
-        return "who_are_you"
-
-    if any(item in text for item in help_questions):
-        return "help"
-
-    if any(item in text for item in how_are_you):
-        return "how_are_you"
-
-    if text in thanks or any(item in text for item in thanks if len(words) <= 6):
-        return "thanks"
 
     if text in greetings:
-        return "greeting"
+        if language == "en":
+            return "Hi! How can I help you today?"
+        return "Merhaba! Bugün sana nasıl yardımcı olayım?"
 
-    if words and words[0] in greetings and len(words) <= 3:
-        return "greeting"
+    if text in how_are_you:
+        if language == "en":
+            return "I'm good, thank you. How can I help you today?"
+        return "İyiyim, teşekkür ederim. Bugün sana nasıl yardımcı olayım?"
 
-    return None
-
-
-def detect_basic_conversation_language(user_text, default_language):
-    text = normalize_basic_text(user_text)
-
-    english_markers = [
-        "hello",
-        "hi",
-        "hey",
-        "how are you",
-        "thanks",
-        "thank you",
-        "what can you do",
-        "who are you",
-        "help"
-    ]
-
-    turkish_markers = [
-        "merhaba",
-        "selam",
-        "nasılsın",
-        "nasilsin",
-        "teşekkür",
-        "tesekkur",
-        "sağ ol",
-        "sag ol",
-        "yardım",
-        "yardim",
-        "sen kimsin"
-    ]
-
-    if any(marker in text for marker in english_markers):
-        return "en"
-
-    if any(marker in text for marker in turkish_markers):
-        return "tr"
-
-    return default_language
-
-
-def get_basic_conversation_answer(user_text, language):
-    intent = detect_basic_conversation(user_text)
-
-    if not intent:
-        return None
-
-    language = detect_basic_conversation_language(user_text, language)
-
-    if language == "en":
-        if intent == "greeting":
-            return (
-                "Hello! I can help you with daily planning, focus, breaks, routines, "
-                "simple meal ideas and weather-based preparation. How can I help you today?"
-            )
-
-        if intent == "how_are_you":
-            return (
-                "I’m good, thank you! I’m ready to help you plan your day, organize your routine "
-                "or improve your focus."
-            )
-
-        if intent == "thanks":
-            return "You’re welcome!"
-
-        if intent == "help":
-            return (
-                "I can help with daily planning, productivity, focus, break management, simple routines, "
-                "basic meal ideas and weather-based preparation. You can also send voice messages or photos."
-            )
-
-        if intent == "who_are_you":
-            return (
-                "I’m a daily-life assistant bot. I can help with planning, routines, focus, breaks, "
-                "simple meal ideas and weather-based preparation."
-            )
-
-    else:
-        if intent == "greeting":
-            return (
-                "Merhaba! Günlük planlama, odaklanma, mola yönetimi, rutin oluşturma, "
-                "basit yemek fikirleri ve hava durumuna göre hazırlık konularında yardımcı olabilirim. "
-                "Bugün sana nasıl yardımcı olayım?"
-            )
-
-        if intent == "how_are_you":
-            return (
-                "İyiyim, teşekkür ederim! Gününü planlama, odaklanma veya rutin oluşturma konusunda "
-                "yardımcı olmaya hazırım."
-            )
-
-        if intent == "thanks":
-            return "Rica ederim!"
-
-        if intent == "help":
-            return (
-                "Sana günlük planlama, verimlilik, odaklanma, mola yönetimi, basit rutinler, "
-                "basit yemek fikirleri ve hava durumuna göre hazırlık konularında yardımcı olabilirim. "
-                "İstersen yazılı mesaj, sesli mesaj veya fotoğraf gönderebilirsin."
-            )
-
-        if intent == "who_are_you":
-            return (
-                "Ben günlük yaşamı kolaylaştırmak için hazırlanmış yapay zeka destekli bir asistanım. "
-                "Planlama, rutin, odaklanma, mola yönetimi, basit yemek fikirleri ve hava durumu konularında yardımcı olurum."
-            )
+    if text in thanks:
+        if language == "en":
+            return "You're welcome!"
+        return "Rica ederim!"
 
     return None
+
+
+# -------------------------------------------------------------------
+# WEATHER TOOL FLOW
+# -------------------------------------------------------------------
+
 def looks_like_weather_question(user_text):
     text = normalize_basic_text(user_text)
 
-    # Net hava durumu kelimeleri
     direct_weather_words = [
         "hava",
         "hava durumu",
-        "yağmur",
         "yagmur",
-        "yağacak",
         "yagacak",
-        "şemsiye",
         "semsiye",
-        "sıcaklık",
         "sicaklik",
         "derece",
-        "rüzgar",
         "ruzgar",
         "kar",
-        "fırtına",
         "firtina",
         "forecast",
         "weather",
@@ -371,19 +645,14 @@ def looks_like_weather_question(user_text):
     if any(word in text for word in direct_weather_words):
         return True
 
-    # Kıyafet sorusu hava bağlamında olabilir ama sadece "dışarı" kelimesi yetmez.
     clothing_weather_patterns = [
         "ne giysem",
         "ne giymeliyim",
         "mont gerekir mi",
         "ceket gerekir mi",
-        "üşür müyüm",
         "usur muyum",
-        "üşürüm",
         "usurum",
-        "soğuk mu",
         "soguk mu",
-        "sıcak mı",
         "sicak mi"
     ]
 
@@ -392,637 +661,410 @@ def looks_like_weather_question(user_text):
 
     return False
 
-def normalize_location_text(text):
-    text = str(text or "").strip()
-    text = re.sub(r"\s+", " ", text)
-    return text
-
-
-def normalize_location_lookup_text(text):
-    text = str(text or "").lower()
-
-    replacements = {
-        "ı": "i",
-        "i̇": "i",
-        "ğ": "g",
-        "ü": "u",
-        "ş": "s",
-        "ö": "o",
-        "ç": "c"
-    }
-
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
-
 
 def clean_extracted_city(city):
-    city = normalize_location_text(city)
+    city = str(city or "").strip()
 
     city = re.sub(
-        r"\b(bugün|bugun|yarın|yarin|şu an|su an|şimdi|simdi|today|tomorrow|now)\b",
-        "",
+        r"\b(hava|durumu|nasil|nasıl|bugun|bugün|yarin|yarın|derece|sicaklik|sıcaklık|yagmur|yağmur|var mi|var mı)\b",
+        " ",
         city,
         flags=re.IGNORECASE
     )
 
-    city = re.sub(
-        r"\b(hava|weather|durumu|nasıl|nasil|how|is|the|in|for|için|icin)\b",
-        "",
-        city,
-        flags=re.IGNORECASE
-    )
+    city = city.replace("'", " ")
+    city = re.sub(r"\s+", " ", city)
 
-    city = re.sub(r"\s+", " ", city).strip()
-    city = city.strip(" '’`.,?!")
-
-    if not city:
-        return None
-
-    if len(city) < 2:
-        return None
-
-    return city
+    return city.strip(" .,!?:;")
 
 
 def extract_city_from_weather_sentence(user_text):
-    """
-    Burada şehir listesi yok.
-    Paris, London, New York, Tokyo, Reykjavik gibi herhangi bir yer adını
-    cümle kalıbından çıkarmaya çalışır.
-    """
+    raw_text = str(user_text or "").strip()
+    text = normalize_basic_text(raw_text)
 
-    text = normalize_location_text(user_text)
+    unclear_location_phrases = [
+        "yasadigim yerde",
+        "bulundugum yerde",
+        "burada",
+        "burasi",
+        "konumumda",
+        "benim oldugum yerde"
+    ]
+
+    if any(phrase in text for phrase in unclear_location_phrases):
+        return ""
 
     patterns = [
-        # İstanbul'da hava nasıl, Paris'te hava nasıl
-        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)['’]?(?:da|de|ta|te)\s+(?:hava|yağmur|sıcaklık|weather)",
-
-        # İstanbul hava durumu, Paris weather
-        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)\s+(?:hava durumu|weather)",
-
-        # weather in New York, how is the weather in Berlin
-        r"(?:weather in|weather for|how is the weather in)\s+(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+)",
-
-        # New York'ta yağmur var mı, Berlin'de yağmur var mı
-        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)['’]?(?:da|de|ta|te)\s+(?:yağmur|yagmur|rain)",
-
-        # Paris için hava, Berlin için sıcaklık
-        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)\s+(?:için|icin|for)\s+(?:hava|weather|sıcaklık|sicaklik|temperature)"
+        r"^(.+?)(?:'?(?:de|da|te|ta))\s+hava",
+        r"^(.+?)\s+hava\s+(?:nasil|nasıl|durumu)",
+        r"^(.+?)\s+weather",
+        r"weather\s+in\s+(.+)$",
+        r"how\s+is\s+the\s+weather\s+in\s+(.+)$"
     ]
 
     for pattern in patterns:
-        match = re.search(pattern, text, flags=re.IGNORECASE)
+        match = re.search(pattern, raw_text, flags=re.IGNORECASE)
 
         if match:
-            city = clean_extracted_city(match.group("city"))
+            city = clean_extracted_city(match.group(1))
 
             if city:
                 return city
 
-    return None
+    return ""
 
 
-def history_is_waiting_for_weather_city(history_context):
-    text = normalize_location_lookup_text(history_context)
+def call_weather_tool(city):
+    try:
+        from tools import weather_tool
 
-    indicators = [
-        "sehir adini yazar misin",
-        "hava durumunu kontrol edebilmem icin sehir",
-        "i need the city name",
-        "need the city name",
-        "city name first"
-    ]
+        possible_functions = [
+            "get_weather",
+            "get_weather_info",
+            "fetch_weather",
+            "get_weather_forecast",
+            "weather_tool"
+        ]
 
-    return any(indicator in text for indicator in indicators)
+        last_error = None
+
+        for function_name in possible_functions:
+            function = getattr(weather_tool, function_name, None)
+
+            if not function:
+                continue
+
+            try:
+                return function(city)
+            except TypeError as error:
+                last_error = error
+
+                try:
+                    return function(location=city)
+                except TypeError as second_error:
+                    last_error = second_error
+                    continue
+
+        raise RuntimeError(f"Weather tool fonksiyonu bulunamadı. Son hata: {last_error}")
+
+    except Exception as error:
+        print(f"Weather tool hatası: {error}")
+
+        return {
+            "success": False,
+            "error": str(error),
+            "city": city
+        }
 
 
-def extract_followup_weather_city(user_text, history_context):
-    """
-    Kullanıcı önce 'hava nasıl?' dedi, bot şehir sordu.
-    Sonra kullanıcı sadece 'Paris', 'New York', 'Tokyo' yazarsa bunu şehir kabul eder.
-    """
+def format_weather_answer(weather_result, city, language="tr"):
+    if isinstance(weather_result, str):
+        return weather_result
 
-    if not history_is_waiting_for_weather_city(history_context):
-        return None
+    if not isinstance(weather_result, dict):
+        return str(weather_result)
 
-    text = normalize_location_text(user_text)
-    words = text.split()
+    if weather_result.get("answer"):
+        return str(weather_result["answer"])
 
-    if 1 <= len(words) <= 5:
-        return clean_extracted_city(text)
+    if weather_result.get("summary"):
+        return str(weather_result["summary"])
 
-    return None
+    if weather_result.get("success") is False:
+        if language == "en":
+            return f"I couldn't retrieve the weather for {city} right now. Please try again later."
+        return f"{city} için hava durumunu şu anda alamadım. Biraz sonra tekrar deneyebilir misin?"
 
-
-def extract_weather_city_with_ai(user_text, history_context):
-    """
-    Asıl doğru yöntem bu:
-    AI/tool router şehir parametresini çıkarır.
-    Şehir listesi kullanılmaz.
-    """
-
-    tool_call = detect_tool_call(
-        user_text=user_text,
-        history_context=history_context
+    temperature = (
+        weather_result.get("temperature")
+        or weather_result.get("temp")
+        or weather_result.get("current_temperature")
     )
 
-    if tool_call.get("tool") == "weather":
-        city = tool_call.get("city")
-
-        if city:
-            return clean_extracted_city(city), tool_call
-
-    return None, tool_call
-
-def normalize_city_lookup_text(text):
-    text = str(text or "").lower()
-
-    replacements = {
-        "ı": "i",
-        "i̇": "i",
-        "ğ": "g",
-        "ü": "u",
-        "ş": "s",
-        "ö": "o",
-        "ç": "c"
-    }
-
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-
-    text = re.sub(r"[^\w\s]", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-
-    return text
-
-
-def extract_city_from_text(user_text):
-    text = normalize_city_lookup_text(user_text)
-    tokens = text.split()
-
-    for token in tokens:
-        if token in CITY_ALIASES:
-            return CITY_ALIASES[token]
-
-        for city_key, city_name in CITY_ALIASES.items():
-            if token.startswith(city_key):
-                suffix = token[len(city_key):]
-
-                if suffix in CITY_SUFFIXES:
-                    return city_name
-
-    return None
-
-
-def history_is_waiting_for_weather_city(history_context):
-    text = normalize_city_lookup_text(history_context)
-
-    indicators = [
-        "sehir adini yazar misin",
-        "hava durumunu kontrol edebilmem icin sehir",
-        "i need the city name",
-        "need the city name",
-        "city name first"
-    ]
-
-    return any(indicator in text for indicator in indicators)
-
-
-def extract_followup_weather_city(user_text, history_context):
-    if not history_is_waiting_for_weather_city(history_context):
-        return None
-
-    text = normalize_city_lookup_text(user_text)
-    tokens = text.split()
-
-    if len(tokens) > 4:
-        return None
-
-    return extract_city_from_text(user_text)
-
-
-def is_session_reference_message(user_text):
-    text = normalize_basic_text(user_text)
-
-    markers = [
-        "az önce",
-        "az once",
-        "önceki",
-        "onceki",
-        "son söylediğim",
-        "son soyledigim",
-        "son yazdığım",
-        "son yazdigim",
-        "ona göre",
-        "ona gore",
-        "buna göre",
-        "buna gore",
-        "devam et",
-        "devam",
-        "aynı şekilde",
-        "ayni sekilde",
-        "ne demiştim",
-        "ne demistim",
-        "hatırlıyor musun",
-        "hatirliyor musun",
-        "according to that",
-        "based on that",
-        "continue",
-        "what did i say",
-        "previous message",
-        "last message"
-    ]
-
-    return any(marker in text for marker in markers)
-
-
-def get_source_label(language):
-    if language == "en":
-        return "Source"
-
-    return "Kaynak"
-
-
-def get_knowledge_not_found_message(language):
-    if language == "en":
-        return (
-            "I could not find enough information about this topic in my knowledge base. "
-            "I can currently answer based on my knowledge base about daily planning, focus, breaks, planner usage, "
-            "daily routines, simple meal ideas and weather-based preparation."
-        )
-
-    return (
-        "Bu konuda bilgi tabanımda yeterli bilgi bulamadım. "
-        "Şu an yalnızca günlük planlama, odaklanma, mola yönetimi, plan defteri, günlük rutin, "
-        "basit yemek fikirleri ve hava durumuna göre hazırlık konularındaki bilgi tabanıma göre cevap verebilirim."
+    condition = (
+        weather_result.get("condition")
+        or weather_result.get("description")
+        or weather_result.get("weather")
     )
 
+    rain = (
+        weather_result.get("rain")
+        or weather_result.get("precipitation")
+        or weather_result.get("precipitation_probability")
+    )
 
-def get_weather_missing_city_message(language):
-    if language == "en":
-        return "I can check the weather, but I need the city name first."
-
-    return "Hava durumunu kontrol edebilmem için şehir adını yazar mısın?"
-
-
-def build_simple_weather_answer(weather_data, language):
-    city = weather_data.get("city") or "belirtilen şehir"
-    temperature = weather_data.get("temperature_c")
-    feels_like = weather_data.get("feels_like_c")
-    humidity = weather_data.get("humidity_percent")
-    precipitation = weather_data.get("precipitation_mm")
-    rain = weather_data.get("rain_mm")
-    wind = weather_data.get("wind_speed_kmh")
-    description = weather_data.get("weather_description")
+    parts = []
 
     if language == "en":
-        parts = [f"Current weather for {city}:"]
-
-        if temperature is not None:
-            parts.append(f"- Temperature: {temperature}°C")
-
-        if feels_like is not None:
-            parts.append(f"- Feels like: {feels_like}°C")
-
-        if humidity is not None:
-            parts.append(f"- Humidity: {humidity}%")
-
-        if wind is not None:
-            parts.append(f"- Wind: {wind} km/h")
-
-        if precipitation is not None:
-            parts.append(f"- Precipitation: {precipitation} mm")
-
-        if rain is not None:
-            parts.append(f"- Rain: {rain} mm")
-
-        if description:
-            parts.append(f"- Condition: {description}")
-
-        parts.append("You can use this to decide whether you need an umbrella, jacket or lighter clothing.")
-
-        return "\n".join(parts)
-
-    parts = [f"{city} için güncel hava durumu:"]
+        parts.append(f"Weather for {city}:")
+    else:
+        parts.append(f"{city} için hava durumu:")
 
     if temperature is not None:
-        parts.append(f"- Sıcaklık: {temperature}°C")
+        parts.append(f"Sıcaklık: {temperature}")
 
-    if feels_like is not None:
-        parts.append(f"- Hissedilen: {feels_like}°C")
-
-    if humidity is not None:
-        parts.append(f"- Nem: %{humidity}")
-
-    if wind is not None:
-        parts.append(f"- Rüzgar: {wind} km/sa")
-
-    if precipitation is not None:
-        parts.append(f"- Yağış: {precipitation} mm")
+    if condition:
+        parts.append(f"Durum: {condition}")
 
     if rain is not None:
-        parts.append(f"- Yağmur: {rain} mm")
+        parts.append(f"Yağış: {rain}")
 
-    if description:
-        parts.append(f"- Durum: {description}")
-
-    parts.append("Buna göre şemsiye, mont/ceket veya daha hafif kıyafet ihtiyacını değerlendirebilirsin.")
+    if len(parts) == 1:
+        return json.dumps(weather_result, ensure_ascii=False, indent=2)
 
     return "\n".join(parts)
 
 
-def get_safe_session(user_id, username):
-    try:
-        session_id, history_context = get_session_and_history(
-            user_id=user_id,
-            username=username
-        )
+def handle_weather_flow(user_id, user_text, language="tr"):
+    user_key = str(user_id)
 
-        return session_id, history_context
+    if WAITING_FOR_WEATHER_CITY.get(user_key):
+        city = clean_extracted_city(user_text)
 
-    except Exception as error:
-        print(f"Session/history hatası: {error}")
+        if city and len(city) <= 50:
+            WAITING_FOR_WEATHER_CITY[user_key] = False
 
-        session_id = f"{user_id}_temporary"
-        history_context = ""
+            weather_result = call_weather_tool(city)
+            answer = format_weather_answer(weather_result, city, language)
 
-        return session_id, history_context
+            return {
+                "handled": True,
+                "answer": answer,
+                "source_type": "weather_tool",
+                "sources": [
+                    {
+                        "tool": "weather",
+                        "city": city,
+                        "result": weather_result
+                    }
+                ]
+            }
 
+    if not looks_like_weather_question(user_text):
+        return {
+            "handled": False
+        }
 
-def safe_save_interaction(session_id, user_id, username, first_name, question, answer):
-    try:
-        save_interaction(
-            session_id=session_id,
-            user_id=user_id,
-            username=username,
-            first_name=first_name,
-            question=question,
-            answer=answer
-        )
-
-        print("Interaction DB kaydı yapıldı.")
-
-    except Exception as error:
-        print(f"Interaction DB kayıt hatası: {error}")
-
-
-def safe_save_rag_log(session_id, user_id, username, question, source_files, matched_text):
-    try:
-        save_rag_log(
-            session_id=session_id,
-            user_id=user_id,
-            username=username,
-            question=question,
-            source_files=source_files,
-            matched_text=matched_text
-        )
-
-        print("RAG log kaydedildi.")
-
-    except Exception as error:
-        print(f"RAG log kayıt hatası: {error}")
-
-
-def safe_save_service_log(
-    session_id,
-    user_id,
-    username,
-    service_name,
-    request_data,
-    response_data,
-    duration_ms=None
-):
-    try:
-        save_service_log(
-            session_id=session_id,
-            user_id=user_id,
-            username=username,
-            service_name=service_name,
-            request_data=request_data,
-            response_data=response_data,
-            duration_ms=duration_ms
-        )
-
-        print(f"Service log kaydedildi: {service_name} - {duration_ms} ms")
-
-    except TypeError:
-        try:
-            save_service_log(
-                session_id=session_id,
-                user_id=user_id,
-                username=username,
-                service_name=service_name,
-                request_data=request_data,
-                response_data=response_data
-            )
-
-            print(f"Service log kaydedildi: {service_name}")
-
-        except Exception as error:
-            print(f"Service log kayıt hatası: {error}")
-
-    except Exception as error:
-        print(f"Service log kayıt hatası: {error}")
-
-
-def generate_general_fallback_answer(user_text, history_context, language):
-    ai_answer, ai_error = call_with_timeout(
-        func=lambda: ask_openrouter_general_fallback(
-            user_text=user_text,
-            history_context=history_context
-        ),
-        timeout_seconds=15
-    )
-
-    if ai_error or is_bad_ai_answer(ai_answer):
-        return get_knowledge_not_found_message(language)
-
-    return ai_answer
-
-def normalize_location_text(text):
-    text = str(text or "").strip()
-    text = re.sub(r"\s+", " ", text)
-    return text
-
-
-def normalize_location_lookup_text(text):
-    text = str(text or "").lower()
-
-    replacements = {
-        "ı": "i",
-        "i̇": "i",
-        "ğ": "g",
-        "ü": "u",
-        "ş": "s",
-        "ö": "o",
-        "ç": "c"
-    }
-
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
-
-
-def clean_extracted_city(city):
-    city = normalize_location_text(city)
-
-    city = re.sub(
-        r"\b(bugün|bugun|yarın|yarin|şu an|su an|şimdi|simdi|today|tomorrow|now)\b",
-        "",
-        city,
-        flags=re.IGNORECASE
-    )
-
-    city = re.sub(
-        r"\b(hava|weather|durumu|nasıl|nasil|how|is|the|in|for|için|icin|yağmur|yagmur|rain|sıcaklık|sicaklik|temperature)\b",
-        "",
-        city,
-        flags=re.IGNORECASE
-    )
-
-    city = re.sub(r"\s+", " ", city).strip()
-    city = city.strip(" '’`.,?!")
+    city = extract_city_from_weather_sentence(user_text)
 
     if not city:
-        return None
+        WAITING_FOR_WEATHER_CITY[user_key] = True
 
-    if len(city) < 2:
-        return None
+        if language == "en":
+            answer = "Which city should I check the weather for?"
+        else:
+            answer = "Hangi şehir için hava durumuna bakmamı istersin?"
 
-    # "yaşadığım yer", "bulunduğum yer" gibi ifadeler şehir değildir.
-    invalid_location_phrases = [
-        "yaşadığım yerde",
-        "yasadigim yerde",
-        "yaşadığım yer",
-        "yasadigim yer",
-        "bulunduğum yerde",
-        "bulundugum yerde",
-        "bulunduğum yer",
-        "bulundugum yer",
-        "burada",
-        "burası",
-        "burasi",
-        "konumum"
-    ]
-
-    normalized_city = normalize_location_lookup_text(city)
-
-    if any(phrase in normalized_city for phrase in invalid_location_phrases):
-        return None
-
-    return city
-
-
-def extract_city_from_weather_sentence(user_text):
-    """
-    Şehir listesi kullanmadan cümleden lokasyon çıkarmaya çalışır.
-    Örnekler:
-    - Paris'te hava nasıl? -> Paris
-    - Londra’da hava nasıl? -> Londra
-    - weather in New York -> New York
-    """
-
-    text = normalize_location_text(user_text)
-
-    patterns = [
-        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)['’]?(?:da|de|ta|te)\s+(?:hava|yağmur|yagmur|sıcaklık|sicaklik|weather|rain|temperature)",
-        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)\s+(?:hava durumu|weather)",
-        r"(?:weather in|weather for|how is the weather in)\s+(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+)",
-        r"(?P<city>[A-Za-zÇĞİÖŞÜçğıöşü\s]+?)\s+(?:için|icin|for)\s+(?:hava|weather|sıcaklık|sicaklik|temperature)"
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, text, flags=re.IGNORECASE)
-
-        if match:
-            city = clean_extracted_city(match.group("city"))
-
-            if city:
-                return city
-
-    return None
-
-
-# Eski kodda generate_ai_answer içinde extract_city_from_text çağrısı kalmış olabilir.
-# Bu fonksiyonu güvenli hale getiriyoruz.
-def extract_city_from_text(user_text):
-    return extract_city_from_weather_sentence(user_text)
-
-
-def history_is_waiting_for_weather_city(history_context):
-    text = normalize_location_lookup_text(history_context)
-
-    indicators = [
-        "sehir adini yazar misin",
-        "hava durumunu kontrol edebilmem icin sehir",
-        "i need the city name",
-        "need the city name",
-        "city name first"
-    ]
-
-    return any(indicator in text for indicator in indicators)
-
-
-def extract_followup_weather_city(user_text, history_context):
-    """
-    Kullanıcı önce 'hava nasıl?' dedi, bot şehir sordu.
-    Sonra kullanıcı sadece 'Paris', 'New York', 'İstanbul' yazarsa bunu şehir kabul eder.
-    """
-
-    if not history_is_waiting_for_weather_city(history_context):
-        return None
-
-    text = normalize_location_text(user_text)
-    words = text.split()
-
-    if 1 <= len(words) <= 5:
-        return clean_extracted_city(text)
-
-    return None
-
-
-def extract_weather_city_with_ai(user_text, history_context):
-    """
-    Asıl akıllı yol:
-    AI/tool router şehir parametresini çıkarmaya çalışır.
-    """
-
-    tool_call = detect_tool_call(
-        user_text=user_text,
-        history_context=history_context
-    )
-
-    if tool_call.get("tool") == "weather":
-        city = tool_call.get("city")
-
-        if city:
-            return clean_extracted_city(city), tool_call
-
-    return None, tool_call
-
-
-def generate_ai_answer(user_text, session_id, history_context, user_id, username):
-    print("generate_ai_answer çalıştı.")
-    print(f"Gelen mesaj: {user_text}")
-
-    language = detect_user_language(user_text)
-
-    if is_meaningless_input(user_text):
         return {
-            "answer": get_meaningless_input_answer(language),
-            "source_type": "invalid_or_meaningless_input",
+            "handled": True,
+            "answer": answer,
+            "source_type": "weather_city_needed",
             "sources": []
         }
 
-    basic_answer = get_basic_conversation_answer(
-        user_text=user_text,
-        language=language
-    )
+    weather_result = call_weather_tool(city)
+    answer = format_weather_answer(weather_result, city, language)
+
+    return {
+        "handled": True,
+        "answer": answer,
+        "source_type": "weather_tool",
+        "sources": [
+            {
+                "tool": "weather",
+                "city": city,
+                "result": weather_result
+            }
+        ]
+    }
+
+
+# -------------------------------------------------------------------
+# RAG BACKEND
+# -------------------------------------------------------------------
+
+def get_rag_backend():
+    return os.getenv("RAG_BACKEND", "json").strip().lower()
+
+
+def search_rag_backend(user_text):
+    backend = get_rag_backend()
+
+    if backend == "qdrant":
+        if (
+            search_qdrant_knowledge_base
+            and format_qdrant_rag_context
+            and get_qdrant_sources_json
+        ):
+            try:
+                qdrant_result = search_qdrant_knowledge_base(user_text)
+
+                if qdrant_result.get("found"):
+                    rag_context = format_qdrant_rag_context(
+                        qdrant_result.get("results", [])
+                    )
+                    sources_json = get_qdrant_sources_json(
+                        qdrant_result.get("results", [])
+                    )
+
+                    return {
+                        "found": True,
+                        "backend": "qdrant",
+                        "context": rag_context,
+                        "sources": qdrant_result.get("results", []),
+                        "sources_json": sources_json,
+                        "raw": qdrant_result
+                    }
+
+                print("Qdrant sonuç bulamadı, JSON RAG fallback deneniyor.")
+
+            except Exception as error:
+                print(f"Qdrant RAG hatası, JSON fallback deneniyor: {error}")
+
+        else:
+            print("Qdrant RAG tool import edilemedi, JSON fallback deneniyor.")
+
+    if search_knowledge_base and format_rag_context:
+        try:
+            json_result = search_knowledge_base(user_text)
+
+            if json_result.get("found"):
+                rag_context = format_rag_context(json_result.get("results", []))
+
+                return {
+                    "found": True,
+                    "backend": "json",
+                    "context": rag_context,
+                    "sources": json_result.get("results", []),
+                    "sources_json": json.dumps(
+                        json_result.get("results", []),
+                        ensure_ascii=False
+                    ),
+                    "raw": json_result
+                }
+
+        except Exception as error:
+            print(f"JSON RAG hatası: {error}")
+
+    return {
+        "found": False,
+        "backend": backend,
+        "context": "",
+        "sources": [],
+        "sources_json": "[]",
+        "raw": {}
+    }
+
+
+def call_rag_llm(user_text, rag_context, history_context):
+    if not ask_openrouter_with_rag:
+        raise RuntimeError("ask_openrouter_with_rag fonksiyonu yok.")
+
+    try:
+        return ask_openrouter_with_rag(
+            user_text=user_text,
+            rag_context=rag_context,
+            history_context=history_context
+        )
+    except TypeError:
+        try:
+            return ask_openrouter_with_rag(
+                user_text,
+                rag_context,
+                history_context
+            )
+        except TypeError:
+            return ask_openrouter_with_rag(
+                user_text,
+                rag_context
+            )
+
+
+# -------------------------------------------------------------------
+# GENERAL LLM FALLBACK
+# -------------------------------------------------------------------
+
+def generate_general_fallback_answer(user_text, history_context="", language="tr"):
+    if send_chat_request:
+        if language == "en":
+            system_prompt = """
+You are a helpful daily-life assistant.
+Answer in English.
+Be practical, specific and conversational.
+Do not mention internal tools, RAG, chunks, embeddings, thresholds, middleware or retrieval.
+If the user asks for a plan, routine, checklist or recommendation, create it directly.
+"""
+        else:
+            system_prompt = """
+Sen yardımcı bir günlük yaşam asistanısın.
+Türkçe cevap ver.
+Pratik, net ve uygulanabilir öneriler sun.
+İç sistem detaylarından, RAG, chunk, embedding, threshold, middleware veya retrieval gibi kelimelerden bahsetme.
+Kullanıcı plan, rutin, liste veya öneri isterse doğrudan oluştur.
+"""
+
+        user_prompt = f"""
+Conversation history:
+{history_context or "No previous conversation context."}
+
+User message:
+{user_text}
+
+Write the best possible answer.
+"""
+
+        messages = [
+            {
+                "role": "system",
+                "content": system_prompt.strip()
+            },
+            {
+                "role": "user",
+                "content": user_prompt.strip()
+            }
+        ]
+
+        try:
+            answer = run_with_timeout(
+                send_chat_request,
+                75,
+                messages
+            )
+
+            answer = clean_final_answer(answer)
+
+            if not is_bad_ai_answer(answer):
+                return answer
+
+        except Exception as error:
+            print(f"General fallback LLM hatası: {error}")
+
+    return build_local_fallback_answer(user_text, language)
+
+
+# -------------------------------------------------------------------
+# MAIN TEXT FLOW
+# -------------------------------------------------------------------
+
+def handle_text_message(user_id, username, first_name, user_text):
+    language = detect_language(user_text)
+    history_context = get_history_context(user_id)
+
+    if not user_text or not str(user_text).strip():
+        if language == "en":
+            return {
+                "answer": "Please write a message so I can help.",
+                "source_type": "empty_message",
+                "sources": []
+            }
+
+        return {
+            "answer": "Sana yardımcı olabilmem için bir mesaj yazman gerekiyor.",
+            "source_type": "empty_message",
+            "sources": []
+        }
+
+    basic_answer = get_basic_conversation_answer(user_text, language)
 
     if basic_answer:
         return {
@@ -1031,258 +1073,62 @@ def generate_ai_answer(user_text, session_id, history_context, user_id, username
             "sources": []
         }
 
-    city_from_text = extract_city_from_weather_sentence(user_text)
+    weather_flow = handle_weather_flow(user_id, user_text, language)
 
-    followup_city = extract_followup_weather_city(
-    user_text=user_text,
-    history_context=history_context
-    )
+    if weather_flow.get("handled"):
+        return {
+            "answer": weather_flow.get("answer", ""),
+            "source_type": weather_flow.get("source_type", "weather"),
+            "sources": weather_flow.get("sources", [])
+        }
 
-    is_weather_request = looks_like_weather_question(user_text) or followup_city is not None
+    rag_search = search_rag_backend(user_text)
 
-    if is_weather_request:
-        print("Hava durumu sorusu algılandı.")
+    if rag_search.get("found"):
+        rag_context = rag_search.get("context", "")
 
-        city = city_from_text or followup_city
-        tool_call = {}
-
-        if not city:
-            print("Şehir regex ile yakalanamadı. AI tool router çalışacak.")
-            ai_city, tool_call = extract_weather_city_with_ai(
-                user_text=user_text,
-                history_context=history_context
-            )
-            if ai_city:
-                city = ai_city
-            if city:
-                print(f"Şehir yakalandı: {city}")
-
-
-            safe_save_service_log(
-                session_id=session_id,
-                user_id=user_id,
-                username=username,
-                service_name="deterministic_weather_city_detection",
-                request_data=to_json_text({
-                    "user_text": user_text,
-                    "history_context_used": bool(history_context)
-                }),
-                response_data=to_json_text({
-                    "city": city
-                }),
-                duration_ms=0
+        try:
+            ai_answer = run_with_timeout(
+                call_rag_llm,
+                75,
+                user_text,
+                rag_context,
+                history_context
             )
 
-        else:
-            print("Şehir direkt yakalanamadı. Tool calling çalışacak.")
-
-            tool_start = now_ms()
-
-            tool_call = detect_tool_call(user_text, history_context)
-
-            tool_duration = elapsed_ms(tool_start)
-
-            safe_save_service_log(
-                session_id=session_id,
-                user_id=user_id,
-                username=username,
-                service_name="tool_decision_weather",
-                request_data=to_json_text({
-                    "user_text": user_text,
-                    "history_context_used": bool(history_context)
-                }),
-                response_data=to_json_text(tool_call),
-                duration_ms=tool_duration
-            )
-
-            print("Tool call sonucu:")
-            print(tool_call)
-
-            if tool_call.get("tool") == "weather":
-                city = tool_call.get("city")
-
-        if not city:
-            return {
-                "answer": get_weather_missing_city_message(language),
-                "source_type": "weather_missing_city",
-                "sources": []
-            }
-
-        weather_result = get_weather_by_city(city)
-
-        for log in weather_result.get("logs", []):
-            request_log = log.get("request")
-            response_log = log.get("response")
-            duration_ms = log.get("duration_ms")
-
-            provider = "weather_api"
-
-            if isinstance(request_log, dict):
-                provider = request_log.get("provider", provider)
-
-            safe_save_service_log(
-                session_id=session_id,
-                user_id=user_id,
-                username=username,
-                service_name=provider,
-                request_data=to_json_text(request_log),
-                response_data=to_json_text(response_log),
-                duration_ms=duration_ms
-            )
-
-        if weather_result["success"]:
-            weather_context = to_json_text(weather_result["data"])
-
-            llm_start = now_ms()
-
-            if tool_call.get("raw_tool_call") and tool_call.get("assistant_message"):
-                ai_answer = ask_openrouter_with_tool_result(
-                    user_text=user_text,
-                    assistant_message=tool_call["assistant_message"],
-                    tool_call=tool_call["raw_tool_call"],
-                    tool_result_text=weather_context,
-                    history_context=history_context
-                )
-            else:
-                ai_answer = ask_openrouter_with_context(
-                    user_text=user_text,
-                    context_text=weather_context,
-                    history_context=history_context
-                )
-
-            llm_duration = elapsed_ms(llm_start)
+            ai_answer = clean_final_answer(ai_answer)
 
             if is_bad_ai_answer(ai_answer):
-                ai_answer = build_simple_weather_answer(
-                    weather_data=weather_result["data"],
-                    language=language
-                )
+                raise RuntimeError("RAG AI cevabı kötü veya boş döndü.")
 
-            safe_save_service_log(
-                session_id=session_id,
-                user_id=user_id,
-                username=username,
-                service_name="weather_answer_llm",
-                request_data=to_json_text({
-                    "user_text": user_text,
-                    "weather_context": weather_result["data"]
-                }),
-                response_data=ai_answer,
-                duration_ms=llm_duration
-            )
+            print(f"RAG cevabı üretildi. Backend: {rag_search.get('backend')}")
 
             return {
                 "answer": ai_answer,
-                "source_type": "weather_tool",
-                "sources": [weather_result["data"]]
+                "source_type": f"{rag_search.get('backend')}_rag",
+                "sources": rag_search.get("sources", [])
             }
 
-        return {
-            "answer": weather_result["message"],
-            "source_type": "weather_error",
-            "sources": []
-        }
+        except Exception as error:
+            print(
+                f"RAG AI cevabı üretilemedi. "
+                f"Backend: {rag_search.get('backend')}. "
+                f"Hata: {error}"
+            )
 
-    if is_session_reference_message(user_text):
-        print("Session referanslı mesaj algılandı.")
-
-        if history_context and history_context.strip():
             ai_answer = generate_general_fallback_answer(
                 user_text=user_text,
                 history_context=history_context,
                 language=language
             )
 
+            ai_answer = clean_final_answer(ai_answer)
+
             return {
                 "answer": ai_answer,
-                "source_type": "session_context_answer",
-                "sources": []
+                "source_type": f"{rag_search.get('backend')}_rag_ai_failed_general_fallback",
+                "sources": rag_search.get("sources", [])
             }
-
-        if language == "en":
-            answer = "I could not find enough previous conversation context for this session."
-        else:
-            answer = "Bu session içinde yeterli önceki konuşma bulamadım."
-
-        return {
-            "answer": answer,
-            "source_type": "session_context_missing",
-            "sources": []
-        }
-
-    print("Hava durumu sorusu değil. Önce RAG çalışacak.")
-
-    rag_search = search_knowledge_base(user_text)
-
-    print("RAG araması yapıldı.")
-    print(rag_search)
-
-    if rag_search["found"]:
-        rag_context = format_rag_context(rag_search["results"])
-        rag_sources = get_rag_sources_json(rag_search["results"])
-
-        print("RAG sonucu bulundu.")
-        print(rag_sources)
-
-        safe_save_rag_log(
-            session_id=session_id,
-            user_id=user_id,
-            username=username,
-            question=user_text,
-            source_files=rag_sources,
-            matched_text=rag_context
-        )
-
-        ai_answer, rag_ai_error = call_with_timeout(
-            func=lambda: ask_openrouter_with_rag(
-                user_text=user_text,
-                rag_context=rag_context,
-                history_context=history_context
-            ),
-            timeout_seconds=45
-        )
-
-        if rag_ai_error or is_bad_ai_answer(ai_answer):
-            print(f"RAG AI cevabı üretilemedi, direkt bilgi tabanı cevabına düşüldü: {rag_ai_error}")
-
-            ai_answer = build_direct_rag_answer(
-                question=user_text,
-                rag_results=rag_search["results"],
-                language=language,
-                history_context=history_context
-            )
-            if is_bad_ai_answer(ai_answer):
-                 if language == "en":
-                    ai_answer = (
-                "I found relevant information in the knowledge base, but I could not generate a proper answer right now. "
-                "Please try again in a few seconds."
-            )
-            else:
-                ai_answer = (
-                "Bilgi tabanında ilgili bilgi buldum fakat şu anda düzgün bir cevap üretemedim. "
-                "Birkaç saniye sonra tekrar dener misin?"
-            )
-            return {
-                "answer": ai_answer,
-                "source_type": "rag_direct_fallback",
-                "sources": rag_search["results"]
-            }
-
-        source_label = get_source_label(language)
-        first_source = rag_search["results"][0]["source_file"]
-
-        if f"{source_label}:" not in ai_answer and "Kaynak:" not in ai_answer and "Source:" not in ai_answer:
-            ai_answer = f"{ai_answer}\n\n{source_label}: {first_source}"
-
-        print("RAG cevabı AI ile üretildi.")
-
-        return {
-            "answer": ai_answer,
-            "source_type": "rag_ai",
-            "sources": rag_search["results"]
-        }
-
-    print("RAG sonucu bulunamadı. Güvenli genel fallback çalışacak.")
 
     ai_answer = generate_general_fallback_answer(
         user_text=user_text,
@@ -1290,171 +1136,218 @@ def generate_ai_answer(user_text, session_id, history_context, user_id, username
         language=language
     )
 
+    ai_answer = clean_final_answer(ai_answer)
+
     return {
         "answer": ai_answer,
-        "source_type": "general_ai_fallback",
+        "source_type": "general_fallback",
         "sources": []
     }
 
 
-def process_text_message(user_id, username, first_name, user_text):
-    session_id, history_context = get_safe_session(
-        user_id=user_id,
-        username=username
-    )
+def process_text_message(
+    user_id,
+    username="",
+    first_name="",
+    message="",
+    **kwargs
+):
+    user_text = message or kwargs.get("text") or kwargs.get("user_text") or ""
+    user_text = str(user_text).strip()
 
-    result = generate_ai_answer(
-        user_text=user_text,
-        session_id=session_id,
-        history_context=history_context,
-        user_id=user_id,
-        username=username
-    )
-
-    if result is None:
-        result = {
-            "answer": "Cevap üretirken bir sorun oluştu. Lütfen tekrar dener misin?",
-            "source_type": "internal_none_result",
-            "sources": []
-        }
-
-    answer = clean_final_answer(result.get("answer", "Cevap alınamadı."))
-
-    safe_save_interaction(
-        session_id=session_id,
-        user_id=user_id,
-        username=username,
-        first_name=first_name,
-        question=user_text,
-        answer=answer
-    )
-
-    return {
-        "success": True,
-        "session_id": session_id,
-        "input_text": user_text,
-        "answer": answer,
-        "source_type": result.get("source_type"),
-        "sources": result.get("sources", [])
-    }
-
-
-def process_voice_message(user_id, username, first_name, audio_path, language="tr-TR"):
-    session_id, history_context = get_safe_session(
-        user_id=user_id,
-        username=username
-    )
-
-    stt_result = speech_to_text(
-        audio_path=audio_path,
-        language=language
-    )
-
-    if not stt_result["success"]:
-        answer = stt_result["message"]
-
-        safe_save_interaction(
-            session_id=session_id,
+    try:
+        result = handle_text_message(
             user_id=user_id,
             username=username,
             first_name=first_name,
-            question="[VOICE_STT_FAILED]",
-            answer=answer
+            user_text=user_text
+        )
+
+        answer = clean_final_answer(result.get("answer", ""))
+
+        if is_bad_ai_answer(answer):
+            language = detect_language(user_text)
+            answer = generate_general_fallback_answer(
+                user_text=user_text,
+                history_context=get_history_context(user_id),
+                language=language
+            )
+            answer = clean_final_answer(answer)
+
+        result["answer"] = answer
+        result.setdefault("source_type", "unknown")
+        result.setdefault("sources", [])
+
+        save_history_context(user_id, user_text, answer)
+
+        log_interaction_to_db(
+            user_id=user_id,
+            username=username,
+            first_name=first_name,
+            user_text=user_text,
+            answer=answer,
+            source_type=result.get("source_type", "unknown"),
+            sources=result.get("sources", [])
+        )
+
+        return result
+
+    except Exception as error:
+        print("process_text_message genel hata:")
+        print(traceback.format_exc())
+
+        language = detect_language(user_text)
+
+        if language == "en":
+            answer = "Something went wrong while processing your message. Please try again in a few seconds."
+        else:
+            answer = "Mesajını işlerken bir hata oluştu. Birkaç saniye sonra tekrar dener misin?"
+
+        result = {
+            "answer": answer,
+            "source_type": "error",
+            "sources": [
+                {
+                    "error": str(error)
+                }
+            ]
+        }
+
+        log_interaction_to_db(
+            user_id=user_id,
+            username=username,
+            first_name=first_name,
+            user_text=user_text,
+            answer=answer,
+            source_type="error",
+            sources=result["sources"]
+        )
+
+        return result
+
+
+# -------------------------------------------------------------------
+# VOICE / IMAGE COMPATIBILITY
+# -------------------------------------------------------------------
+
+def process_voice_message(
+    user_id,
+    username="",
+    first_name="",
+    audio_path=None,
+    message="",
+    **kwargs
+):
+    transcript = (
+        kwargs.get("transcript")
+        or kwargs.get("text")
+        or message
+        or ""
+    )
+
+    if transcript:
+        result = process_text_message(
+            user_id=user_id,
+            username=username,
+            first_name=first_name,
+            message=transcript
+        )
+        result["transcript"] = transcript
+        result["source_type"] = f"voice_{result.get('source_type', 'unknown')}"
+        return result
+
+    try:
+        from openrouter_client import transcribe_audio
+
+        transcript = transcribe_audio(audio_path)
+
+        result = process_text_message(
+            user_id=user_id,
+            username=username,
+            first_name=first_name,
+            message=transcript
+        )
+
+        result["transcript"] = transcript
+        result["source_type"] = f"voice_{result.get('source_type', 'unknown')}"
+
+        return result
+
+    except Exception as error:
+        print(f"Voice processing hatası: {error}")
+
+        return {
+            "answer": "Ses mesajını şu anda işleyemedim. İstersen metin olarak yazabilirsin.",
+            "source_type": "voice_error",
+            "sources": [
+                {
+                    "error": str(error)
+                }
+            ]
+        }
+
+
+def process_image_message(
+    user_id,
+    username="",
+    first_name="",
+    image_path=None,
+    caption="",
+    message="",
+    **kwargs
+):
+    user_text = caption or message or kwargs.get("text") or ""
+
+    try:
+        from openrouter_client import analyze_image
+
+        answer = analyze_image(
+            image_path=image_path,
+            user_text=user_text
+        )
+
+        answer = clean_final_answer(answer)
+
+        if is_bad_ai_answer(answer):
+            raise RuntimeError("Image AI cevabı kötü veya boş döndü.")
+
+        log_interaction_to_db(
+            user_id=user_id,
+            username=username,
+            first_name=first_name,
+            user_text=user_text or "[image]",
+            answer=answer,
+            source_type="image_vision",
+            sources=[]
         )
 
         return {
-            "success": False,
-            "session_id": session_id,
-            "transcript": "",
             "answer": answer,
-            "voice_path": None,
-            "source_type": "stt_failed",
+            "source_type": "image_vision",
             "sources": []
         }
-
-    transcript = stt_result["text"]
-    detected_language = detect_user_language(transcript)
-
-    result = generate_ai_answer(
-        user_text=transcript,
-        session_id=session_id,
-        history_context=history_context,
-        user_id=user_id,
-        username=username
-    )
-
-    if result is None:
-        result = {
-            "answer": "Cevap üretirken bir sorun oluştu. Lütfen tekrar dener misin?",
-            "source_type": "internal_none_result",
-            "sources": []
-        }
-
-    answer = result.get("answer", "Cevap alınamadı.")
-
-    safe_save_interaction(
-        session_id=session_id,
-        user_id=user_id,
-        username=username,
-        first_name=first_name,
-        question=f"[VOICE] {transcript}",
-        answer=answer
-    )
-
-    tts_language = "en" if detected_language == "en" else "tr"
-
-    tts_result = text_to_speech(
-        text=answer,
-        language=tts_language
-    )
-
-    voice_path = None
-
-    if tts_result["success"]:
-        voice_path = tts_result["voice_path"]
-
-    return {
-        "success": True,
-        "session_id": session_id,
-        "transcript": transcript,
-        "answer": answer,
-        "voice_path": voice_path,
-        "source_type": result.get("source_type"),
-        "sources": result.get("sources", [])
-    }
-
-
-def process_image_message(user_id, username, first_name, image_path, caption=""):
-    session_id, history_context = get_safe_session(
-        user_id=user_id,
-        username=username
-    )
-
-    try:
-        answer = analyze_image_with_openrouter(
-            image_path=image_path,
-            caption=caption,
-            history_context=history_context
-        )
 
     except Exception as error:
-        print(f"Image analyze error: {error}")
-        answer = "Fotoğrafı analiz ederken bir hata oluştu. Lütfen tekrar dener misin?"
+        print(f"Image processing hatası: {error}")
 
-    safe_save_interaction(
-        session_id=session_id,
-        user_id=user_id,
-        username=username,
-        first_name=first_name,
-        question=f"[PHOTO] {caption}",
-        answer=answer
-    )
+        fallback_text = user_text or "Bu görsel hakkında yardımcı olur musun?"
 
-    return {
-        "success": True,
-        "session_id": session_id,
-        "caption": caption,
-        "answer": answer,
-        "source_type": "vision",
-        "sources": []
-    }
+        result = process_text_message(
+            user_id=user_id,
+            username=username,
+            first_name=first_name,
+            message=fallback_text
+        )
+
+        result["source_type"] = f"image_fallback_{result.get('source_type', 'unknown')}"
+
+        return result
+
+
+# Eski api_server importları bozulmasın diye aliaslar
+def process_message(*args, **kwargs):
+    return process_text_message(*args, **kwargs)
+
+
+def handle_message(*args, **kwargs):
+    return process_text_message(*args, **kwargs)

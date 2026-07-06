@@ -7,3 +7,4 @@ bot_messages.db
 model_state.json
 *.log
 .DS_Store
+qdrant_storage/
